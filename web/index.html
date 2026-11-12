@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FirePulse: harmonized burning-activity calendar</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<style>
+:root{--bg:#fafaf7;--fg:#1d1d1b;--mut:#5f5f58;--card:#fff;--bd:#d8d6cc;--ac:#b4400f;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#171715;--fg:#ecebe4;--mut:#a3a29a;--card:#222220;--bd:#3a3935;--ac:#f08a5d}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+header{padding:12px 18px;border-bottom:1px solid var(--bd)}h1{margin:0;font-size:1.3rem}h2{font-size:1rem;margin:0 0 8px}
+.sub{color:var(--mut);font-size:.85rem}.demo{background:#b4400f;color:#fff;padding:6px 18px;font-weight:600;display:none}
+main{display:grid;grid-template-columns:minmax(300px,1fr) minmax(320px,1.4fr);gap:14px;padding:14px;max-width:1400px;margin:auto}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:14px}
+#map{height:420px;border-radius:8px;border:1px solid var(--bd)}
+label{font-size:.8rem;color:var(--mut)}select,input,button{font:inherit;padding:4px 6px;margin:2px;border:1px solid var(--bd);border-radius:5px;background:var(--card);color:var(--fg)}
+input.n{width:5.2em}button{cursor:pointer}button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+#cal{overflow-x:auto}table{border-collapse:collapse;font-size:.75rem}th,td{padding:2px 4px;text-align:center;min-width:34px;border:1px solid var(--bd)}
+.big{font-size:1.35rem;font-weight:700}.note{font-size:.78rem;color:var(--mut)}
+.legend{display:flex;align-items:center;gap:6px;font-size:.75rem}.ramp{height:10px;width:140px;border-radius:3px}
+</style></head><body>
+<div class="demo" id="demo">DEMO DATA: synthetic values for testing. Not real observations. Run the real pipeline to replace them.</div>
+<header><h1>FirePulse</h1><div class="sub">Sensor-aware calendar of satellite hotspot activity (MODIS + VIIRS). Hotspots are detections, not fire events or burned area.</div></header>
+<main>
+<div>
+ <div id="map" role="application" aria-label="Map: draw an area of interest"></div>
+ <div class="card" style="margin-top:14px"><h2>Area of interest</h2>
+  <label>West <input class="n" id="w"></label><label>South <input class="n" id="s"></label>
+  <label>East <input class="n" id="e"></label><label>North <input class="n" id="n"></label>
+  <button id="applyBox">Apply box</button><button id="reset">Whole region</button>
+  <div class="note" id="aoiText"></div></div>
+ <div class="card"><h2>Method and limits</h2><div class="note">
+  VIIRS (375 m) detects many more small fires than MODIS (1 km), so raw counts are not comparable.
+  VIIRS months are divided by a calendar-month ratio estimated where both sensors operated (2012 onward),
+  giving a <b>MODIS-equivalent index</b>. The shaded band is the inter-year IQR of that ratio.
+  The ratio is estimated for the whole region and applied to your area, so small areas are less reliable.
+  Anomalies compare a month with the same calendar month in other years (median and MAD).
+  Detections include agricultural burning and other heat sources. Months before 2012 cannot be checked against VIIRS.
+  <div id="val"></div></div></div>
+</div>
+<div>
+ <div class="card"><h2>Date range and view</h2>
+  <label>From <select id="y0"></select></label><label>To <select id="y1"></select></label>
+  <label>Calendar shows <select id="mode"><option value="h">Harmonized index</option><option value="z">Anomaly (robust z)</option></select></label>
+  <div id="peaks" class="note"></div></div>
+ <div class="card"><h2>Burning-activity calendar</h2><div id="cal"></div><div class="legend" id="legend"></div></div>
+ <div class="card"><h2>Monthly series: raw sensors vs harmonized</h2><div style="height:300px"><canvas id="chart" aria-label="Line chart of monthly hotspot counts"></canvas></div>
+  <div class="note">Raw MODIS and VIIRS counts differ in scale; the harmonized line is on the MODIS-equivalent scale.</div></div>
+ <div class="card"><h2>How unusual is a month?</h2>
+  <label>Month <select id="tM"></select></label><label>Year <select id="tY"></select></label>
+  <div id="anom"></div></div>
+ <div class="card"><h2>Downloads</h2>
+  <button class="p" id="dlCsv">Monthly CSV</button><button id="dlPng">Chart PNG</button><button id="dlRep">Report (HTML)</button>
+  <div class="note">Point-level hotspot CSV: use export_hotspots.py (see README).</div></div>
+</div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const $=id=>document.getElementById(id), MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+let META,CELLS,REC,map,layer=null,ring=null,inAOI,chart,S=[];
+const median=a=>{const s=[...a].sort((x,y)=>x-y),n=s.length;return n?(n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2):NaN};
+const fmt=v=>v==null||isNaN(v)?"n/a":(Math.abs(v)>=100?Math.round(v):v.toFixed(1));
+function pip(p,r){let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const[xi,yi]=r[i],[xj,yj]=r[j];if(((yi>p[1])!=(yj>p[1]))&&(p[0]<(xj-xi)*(p[1]-yi)/(yj-yi)+xi))c=!c}return c}
+const ratioFor=cal=>{const r=META.ratios.by_month[cal];return r&&r.med>0?r:META.ratios.global};
+function harm(i,mod,vii){const r=ratioFor(+META.months[i].slice(5));
+ const useV=vii!=null&&(mod==null||(META.splice_idx!=null&&i>=META.splice_idx));
+ if(useV)return{h:vii/r.med,lo:r.q75>0?vii/r.q75:null,hi:r.q25>0?vii/r.q25:null,src:"VIIRS"};
+ return mod==null?{h:null,lo:null,hi:null,src:""}:{h:mod,lo:mod,hi:mod,src:"MODIS"}}
+function robustZ(hist,x){if(x==null||hist.length<META.min_baseline)return null;const m=median(hist),mad=median(hist.map(v=>Math.abs(v-m)));return mad===0?null:0.6745*(x-m)/mad}
+const pct=(hist,x)=>x==null||hist.length<META.min_baseline?null:100*hist.filter(v=>v<=x).length/hist.length;
+const bandOf=z=>z==null?"insufficient data":z>=2?"much above normal":z>=1?"above normal":z<=-2?"much below normal":z<=-1?"below normal":"normal";
+function build(){
+ const N=META.months.length,mod=Array(N).fill(null),vii=Array(N).fill(null);
+ for(let i=META.avail.modis[0];i<=META.avail.modis[1];i++)mod[i]=0;
+ for(let i=META.avail.viirs[0];i<=META.avail.viirs[1];i++)vii[i]=0;
+ for(const[c,i,a,b]of REC){if(!inAOI[c])continue;if(mod[i]!==null)mod[i]+=a;if(vii[i]!==null)vii[i]+=b}
+ S=META.months.map((m,i)=>({m,i,y:+m.slice(0,4),cal:+m.slice(5),mod:mod[i],vii:vii[i],...harm(i,mod[i],vii[i])}));
+ for(const s of S){const base=S.filter(o=>o.cal===s.cal&&o.y!==s.y&&o.h!=null).map(o=>o.h);s.z=robustZ(base,s.h);s.band=bandOf(s.z)}}
+const VIR=["#440154","#3b528b","#21908d","#5dc863","#fde725"],DIV=["#2166ac","#f7f7f7","#b2182b"];
+function hex(h){return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16))}
+function ramp(st,t){t=Math.max(0,Math.min(1,t));const k=t*(st.length-1),i=Math.min(Math.floor(k),st.length-2),f=k-i,a=hex(st[i]),b=hex(st[i+1]);return a.map((v,j)=>Math.round(v+(b[j]-v)*f))}
+const css=c=>`rgb(${c})`,dark=c=>(c[0]*.299+c[1]*.587+c[2]*.114)<140;
+function range(){return[+$("y0").value,+$("y1").value]}
+function renderCal(){
+ const[y0,y1]=range(),mode=$("mode").value,rows=S.filter(s=>s.y>=y0&&s.y<=y1);
+ const mx=Math.max(1,...rows.map(s=>s.h||0));let h="<table><tr><th scope='col'>Year</th>"+MN.map(m=>`<th scope='col'>${m}</th>`).join("")+"</tr>";
+ for(let y=y0;y<=y1;y++){h+=`<tr><th scope='row'>${y}</th>`;
+  for(let m=1;m<=12;m++){const s=S.find(o=>o.y===y&&o.cal===m);let bg="#8884",txt="–",tt="no data";
+   if(s&&s.h!=null){const v=mode==="h"?s.h:s.z;
+    if(v==null){txt="·";tt=`${s.m}: index ${fmt(s.h)}; anomaly not computable`}
+    else{const c=mode==="h"?ramp(VIR,s.h/mx):ramp(DIV,(v+3)/6);bg=css(c);txt=mode==="h"?fmt(s.h):v.toFixed(1);tt=`${s.m}: index ${fmt(s.h)} (${s.src}); z=${s.z==null?"n/a":s.z.toFixed(2)} ${s.band}`;
+     h+=`<td title="${tt}" style="background:${bg};color:${dark(c)?"#fff":"#111"}">${txt}</td>`;continue}}
+   h+=`<td title="${tt}" style="background:${bg}">${txt}</td>`}
+  h+="</tr>"}
+ $("cal").innerHTML=h+"</table>";
+ const st=mode==="h"?VIR:DIV,g=`linear-gradient(90deg,${st.join(",")})`;
+ $("legend").innerHTML=mode==="h"?`<span>low</span><div class="ramp" style="background:${g}"></div><span>high (max ${fmt(mx)})</span>`:`<span>below normal</span><div class="ramp" style="background:${g}"></div><span>above normal</span><span class="note">· = baseline too short or no spread</span>`;
+ const top=[...rows].filter(s=>s.h!=null).sort((a,b)=>b.h-a.h).slice(0,3).map(s=>`${s.m} (${fmt(s.h)})`).join(", ");
+ const yr={};rows.forEach(s=>{if(s.h!=null)yr[s.y]=(yr[s.y]||0)+s.h});const ty=Object.entries(yr).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>`${e[0]} (${fmt(e[1])})`).join(", ");
+ $("peaks").innerHTML=`Busiest months: ${top||"n/a"}<br>Busiest years: ${ty||"n/a"}`}
+function renderChart(){
+ const[y0,y1]=range(),rows=S.filter(s=>s.y>=y0&&s.y<=y1),L=rows.map(s=>s.m);
+ const ds=[{label:"MODIS raw",data:rows.map(s=>s.mod),borderColor:"#d95f02",borderWidth:1.2,pointRadius:0},
+  {label:"VIIRS raw",data:rows.map(s=>s.vii),borderColor:"#7570b3",borderWidth:1.2,pointRadius:0},
+  {label:"band low",data:rows.map(s=>s.lo),borderWidth:0,pointRadius:0,fill:false},
+  {label:"Harmonized uncertainty",data:rows.map(s=>s.hi),borderWidth:0,pointRadius:0,backgroundColor:"rgba(27,158,119,.25)",fill:"-1"},
+  {label:"Harmonized (MODIS-equivalent)",data:rows.map(s=>s.h),borderColor:"#1b9e77",borderWidth:2,pointRadius:0}];
+ if(chart)chart.destroy();
+ chart=new Chart($("chart"),{type:"line",data:{labels:L,datasets:ds},options:{responsive:true,maintainAspectRatio:false,animation:false,
+  plugins:{legend:{labels:{filter:i=>i.text!=="band low"}}},scales:{x:{ticks:{maxTicksLimit:10}},y:{beginAtZero:true,title:{display:true,text:"hotspot detections / month"}}}}})}
+function renderAnom(){
+ const y=+$("tY").value,m=+$("tM").value,s=S.find(o=>o.y===y&&o.cal===m);
+ if(!s||s.h==null){$("anom").innerHTML="<p>No data for this month.</p>";return}
+ const base=S.filter(o=>o.cal===m&&o.y<y&&o.h!=null).map(o=>o.h),z=robustZ(base,s.h),p=pct(base,s.h),med=median(base),b=bandOf(z);
+ $("anom").innerHTML=`<p class="big">${MN[m-1]} ${y}: ${b}</p><p>Index <b>${fmt(s.h)}</b> vs median <b>${fmt(med)}</b> for the same month in ${base.length} earlier years`+
+  (z==null?`. <i>Not enough history (needs ${META.min_baseline}+ earlier years with spread), so no score is shown.</i>`:`; robust z = ${z.toFixed(2)}, higher than ${p.toFixed(0)}% of earlier years.`)+
+  `</p><p class="note">Source for this month: ${s.src}. Anomaly means unusual versus history, not necessarily dangerous or a long-term trend.</p>`}
+function series2csv(){const rows=[["month","modis_raw","viirs_raw","harmonized_index","uncertainty_low","uncertainty_high","source_used","robust_z","band"]];
+ const[y0,y1]=range();S.filter(s=>s.y>=y0&&s.y<=y1).forEach(s=>rows.push([s.m,s.mod,s.vii,s.h==null?"":s.h.toFixed(2),s.lo==null?"":s.lo.toFixed(2),s.hi==null?"":s.hi.toFixed(2),s.src,s.z==null?"":s.z.toFixed(2),s.band]));
+ return rows.map(r=>r.map(v=>v==null?"":v).join(",")).join("\n")}
+function dl(name,data,type){const a=document.createElement("a");a.href=type?URL.createObjectURL(new Blob([data],{type})):data;a.download=name;a.click()}
+function aoiText(){return ring?"Custom area: "+ring.map(p=>`(${p[1].toFixed(2)}, ${p[0].toFixed(2)})`).join(" "):"Whole region "+META.bbox.join(", ")}
+function setAOI(r){ring=r;inAOI=CELLS.cells.map(c=>!r||pip([c[1]+CELLS.grid/2,c[0]+CELLS.grid/2],r));$("aoiText").textContent=aoiText();refresh()}
+function refresh(){build();renderCal();renderChart();renderAnom()}
+function opt(sel,vals,def){sel.innerHTML=vals.map(v=>`<option value="${v[0]}">${v[1]}</option>`).join("");sel.value=def}
+async function init(){
+ [META,CELLS]=await Promise.all(["data/meta.json","data/cells.json"].map(u=>fetch(u).then(r=>r.json())));REC=CELLS.rec;
+ if(META.demo)$("demo").style.display="block";
+ const ys=[...new Set(META.months.map(m=>+m.slice(0,4)))],last=META.months[META.months.length-1];
+ opt($("y0"),ys.map(y=>[y,y]),ys[0]);opt($("y1"),ys.map(y=>[y,y]),ys[ys.length-1]);opt($("tY"),ys.map(y=>[y,y]),+last.slice(0,4));opt($("tM"),MN.map((m,i)=>[i+1,m]),+last.slice(5));
+ const v=META.validation;$("val").innerHTML=v&&v.years?`<p><b>Validation</b> (leave-one-year-out, ${v.years} overlap years): median sMAPE ${v.median_smape_pct.toFixed(0)}%, median absolute bias ${v.median_abs_bias_pct.toFixed(0)}%, correlation ${v.pooled_corr==null?"n/a":v.pooled_corr.toFixed(2)}.</p>`:"";
+ map=L.map("map").setView([(META.bbox[1]+META.bbox[3])/2,(META.bbox[0]+META.bbox[2])/2],7);
+ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap contributors"}).addTo(map);
+ L.rectangle([[META.bbox[1],META.bbox[0]],[META.bbox[3],META.bbox[2]]],{color:"#888",weight:1,fill:false}).addTo(map);
+ layer=new L.FeatureGroup().addTo(map);
+ map.addControl(new L.Control.Draw({edit:false,draw:{polygon:true,rectangle:true,polyline:false,circle:false,marker:false,circlemarker:false}}));
+ map.on(L.Draw.Event.CREATED,e=>{layer.clearLayers();layer.addLayer(e.layer);setAOI(e.layer.getLatLngs()[0].map(p=>[p.lng,p.lat]))});
+ $("reset").onclick=()=>{layer.clearLayers();setAOI(null)};
+ $("applyBox").onclick=()=>{const[w,s,e,n]=["w","s","e","n"].map(k=>parseFloat($(k).value));if([w,s,e,n].some(isNaN)||w>=e||s>=n){alert("Enter valid west<east and south<north");return}
+  layer.clearLayers();L.rectangle([[s,w],[n,e]],{color:"#b4400f"}).addTo(layer);setAOI([[w,s],[e,s],[e,n],[w,n]])};
+ ["y0","y1","mode"].forEach(id=>$(id).onchange=()=>{renderCal();renderChart()});["tY","tM"].forEach(id=>$(id).onchange=renderAnom);
+ $("dlCsv").onclick=()=>dl("firepulse_monthly.csv",series2csv(),"text/csv");
+ $("dlPng").onclick=()=>dl("firepulse_chart.png",$("chart").toDataURL("image/png"));
+ $("dlRep").onclick=()=>{const a=$("anom").innerHTML,t=series2csv().split("\n").slice(-25).map(r=>"<tr>"+r.split(",").map(c=>`<td>${c}</td>`).join("")+"</tr>").join("");
+  dl("firepulse_report.html",`<!doctype html><meta charset=utf-8><title>FirePulse report</title><body style="font:15px system-ui;max-width:800px;margin:2em auto"><h1>FirePulse report</h1><p>${aoiText()}</p><p>Generated ${new Date().toISOString()}${META.demo?" <b>(DEMO DATA)</b>":""}</p>${a}<h2>Last 24 months</h2><table border=1 cellpadding=3>${t}</table><h2>Limits</h2><p>Hotspots are satellite detections, not fire events or burned area. Harmonized values are an index on the MODIS-equivalent scale with an estimated uncertainty; see method notes in the app.</p>`,"text/html")};
+ setAOI(null)}
+init().catch(e=>{document.body.insertAdjacentHTML("beforeend","<p style='padding:20px'>Could not load data/meta.json. Run the pipeline and serve this folder over http (python -m http.server). "+e+"</p>")});
+</script></body></html>
