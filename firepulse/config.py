@@ -9,6 +9,7 @@ WEB_DATA = Path("web/data")
 
 BBOX = (79.5, 5.8, 82.0, 9.9)         # west, south, east, north (Sri Lanka, rough)
 SOURCES = {"modis": "MODIS_SP", "viirs": "VIIRS_SNPP_SP"}   # FIRMS standard-processing
+EXTRA_SOURCES = {}                    # {folder name: "modis"|"viirs"}; add e.g. NOAA-20 only after verifying FIRMS source names
 GRID = 0.1                            # degrees; cell size for precomputed counts
 CHUNK_DAYS = 10                       # FIRMS area API: day range up to 10
 

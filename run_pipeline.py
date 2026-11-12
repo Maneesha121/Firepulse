@@ -26,12 +26,16 @@ if set(dfs) != {"modis", "viirs"}:
 avail = aggregate.availability(dfs)
 agg = aggregate.cell_monthly(dfs, avail)
 region = aggregate.region_monthly(agg, avail)
+statuses = aggregate.month_statuses(dfs, region.index)
+region = aggregate.mask_unobserved(region, statuses)      # unverified months become unknown (NaN), never 0
 tables = harmonize.ratio_tables(region)
 hz = harmonize.harmonize(region, tables)
 val_df, val_sum = harmonize.loo_validation(region)
 an = anomaly.series_anomalies(hz["harmonized"])
-export.export_tables(region, hz, an, val_df)
-export.export_web(agg, region, tables, val_sum, avail)
+export.export_tables(region, hz, an, val_df, statuses)
+import json as _json
+cleaning = _json.loads((clean.CLEAN / 'cleaning_report.json').read_text())
+export.export_web(agg, region, tables, val_sum, avail, statuses, cleaning)
 print("\nGlobal VIIRS/MODIS ratio:", {k: round(v, 2) for k, v in tables["global"].items()})
 print("Leave-one-year-out validation:", val_sum)
 print("Done. Open the site:  python -m http.server -d web 8000   ->  http://localhost:8000")

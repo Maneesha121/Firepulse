@@ -1,7 +1,7 @@
 """Download FIRMS hotspots in 10-day chunks (resumable cache). Needs FIRMS_MAP_KEY."""
 import os, time, datetime as dt
 import requests
-from .config import RAW, SOURCES, BBOX, CHUNK_DAYS
+from .config import RAW, SOURCES, EXTRA_SOURCES, BBOX, CHUNK_DAYS
 
 BASE = "https://firms.modaps.eosdis.nasa.gov/api"
 
@@ -29,7 +29,8 @@ def download(start, end, key=None, sources=None):
         raise SystemExit("Set FIRMS_MAP_KEY (free key from the FIRMS website).")
     bbox = ",".join(map(str, BBOX))
     d0, d1 = dt.date.fromisoformat(start), dt.date.fromisoformat(end)
-    for name in (sources or SOURCES.values()):
+    failed = []
+    for name in (sources or list(SOURCES.values()) + list(EXTRA_SOURCES)):
         folder = RAW / name
         folder.mkdir(parents=True, exist_ok=True)
         d = d0
@@ -39,9 +40,14 @@ def download(start, end, key=None, sources=None):
             if not f.exists():
                 txt = _get(f"{BASE}/area/csv/{key}/{name}/{bbox}/{n}/{d}")
                 if not txt.startswith("latitude"):
+                    # NOT cached: an error reply must never look like 'retrieved, zero detections' (retry on next run)
                     print("unexpected reply", name, d, txt[:150])
-                    txt = ""          # empty file = cached 'no data / error' marker
-                f.write_text(txt)
+                    failed.append((name, str(d), txt[:80]))
+                else:
+                    f.write_text(txt)  # header-only reply = window retrieved with zero detections (coverage evidence)
                 time.sleep(0.3)       # far below 5000 requests / 10 min
             d += dt.timedelta(days=n)
         print("downloaded", name)
+    if failed:
+        print(f"WARNING: {len(failed)} window(s) failed and were not cached; re-run to retry. First: {failed[0]}")
+    return failed
