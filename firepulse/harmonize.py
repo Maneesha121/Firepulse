@@ -15,11 +15,36 @@ def _stats(s):
             "q75": float(s.quantile(.75)), "n": int(len(s))}
 
 
-def ratio_tables(region, exclude_year=None):
-    ov = region.dropna()
-    ov = ov[ov["modis"] >= MIN_COUNT]
+# Per-month status of the VIIRS/MODIS ratio (used by ratio_tables and by sensor_transition.py)
+RATIO_USABLE = "USABLE"
+RATIO_ZERO_DEN = "ZERO_DENOMINATOR"          # MODIS count is 0: the ratio is undefined
+RATIO_LOW_DEN = "LOW_DENOMINATOR"            # 0 < MODIS count < MIN_COUNT: unstable, never used for estimation
+RATIO_NOT_BOTH = "NOT_BOTH_OBSERVED"         # MODIS and/or VIIRS month unknown (missing, incomplete, no evidence)
+
+
+def classify_overlap(region):
+    """Series (same index as ``region``) saying whether each month can contribute a VIIRS/MODIS ratio.
+
+    This is the single definition of a "usable overlap month": both sensors observed AND MODIS count >= MIN_COUNT.
+    """
+    both = region["modis"].notna() & region["viirs"].notna()
+    m = region["modis"]
+    st = pd.Series(RATIO_NOT_BOTH, index=region.index, dtype=object)
+    st[both & (m == 0)] = RATIO_ZERO_DEN
+    st[both & (m > 0) & (m < MIN_COUNT)] = RATIO_LOW_DEN
+    st[both & (m >= MIN_COUNT)] = RATIO_USABLE
+    return st
+
+
+def usable_overlap(region, exclude_year=None):
+    ov = region[classify_overlap(region) == RATIO_USABLE]
     if exclude_year is not None:
         ov = ov[ov.index.year != exclude_year]
+    return ov
+
+
+def ratio_tables(region, exclude_year=None):
+    ov = usable_overlap(region, exclude_year)
     if ov.empty:
         raise ValueError("no usable overlap months to estimate the ratio")
     r = ov["viirs"] / ov["modis"]

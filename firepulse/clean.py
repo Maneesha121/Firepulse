@@ -5,7 +5,7 @@ Every removal is counted per rule and written to <CLEAN>/cleaning_report.json (n
 import json
 import numpy as np, pandas as pd
 from .config import (RAW, CLEAN, SOURCES, EXTRA_SOURCES, BBOX, MODIS_MIN_CONF, VIIRS_KEEP, MODIS_START,
-                     VIIRS_START, DEMO)
+                     VIIRS_START, DEMO, FIRE_TYPE_DOC, FIRE_TYPE_KEEP, FIRE_TYPE_BASIS)
 from . import schema
 
 START = {"modis": MODIS_START, "viirs": VIIRS_START}
@@ -26,6 +26,16 @@ def load_raw(key):
                 d["src"] = folder.name
                 frames.append(d)
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+def _type_breakdown(col):
+    """Raw FIRMS 'type' codes with counts and the documented meaning; undocumented codes are labelled, never interpreted."""
+    out = []
+    for k, n in col.value_counts(dropna=False).sort_index().items():
+        code = None if pd.isna(k) else (int(k) if float(k).is_integer() else float(k))
+        out.append({"raw_code": code, "count": int(n), "kept": code in FIRE_TYPE_KEEP,
+                    "documented_meaning": FIRE_TYPE_DOC.get(code, "undocumented code (kept raw, not interpreted)"), "basis": FIRE_TYPE_BASIS})
+    return out
 
 
 def clean(df, key, report=None):
@@ -51,8 +61,9 @@ def clean(df, key, report=None):
     step("coordinates_out_of_range", "|lat|>90 or |lon|>180", (lat.abs() <= 90) & (lon.abs() <= 180))
     dates = pd.to_datetime(df["acq_date"], errors="coerce")
     step("invalid_date", "acq_date not parseable", dates.notna())
-    if "type" in df.columns:                      # 0 = presumed vegetation fire
-        step("type_filter", "keep type == 0 (presumed vegetation fire)", df["type"] == 0)
+    if "type" in df.columns:                      # 0 = presumed vegetation fire (see config.FIRE_TYPE_DOC)
+        rep["type_breakdown"] = _type_breakdown(df["type"])
+        step("type_filter", "keep type == 0 (presumed vegetation fire)", df["type"].isin(FIRE_TYPE_KEEP))
     if key == "modis":
         step("confidence_filter", f"MODIS confidence >= {MODIS_MIN_CONF} (assumption)",
              pd.to_numeric(df["confidence"], errors="coerce") >= MODIS_MIN_CONF)
@@ -72,6 +83,19 @@ def clean(df, key, report=None):
         "acq_time": df["acq_time"].values if "acq_time" in df else "",
         "src": df["src"].values,
         "data_origin": schema.data_origin(DEMO)})
+    out["product_stream"] = schema.product_stream(df["src"])
+    # The VIIRS source name is the documented FIRMS product identity. It fills platforms the 'satellite' column could not
+    # map (UNKNOWN) and is cross-checked against it; a disagreement keeps the column value and is counted, never silent.
+    from_src = pd.Series(schema.platform_from_src(df["src"]), index=out.index)
+    fill = (out["platform"] == "UNKNOWN") & from_src.notna()
+    conflict = (out["platform"] != "UNKNOWN") & from_src.notna() & (out["platform"] != from_src)
+    out.loc[fill, "platform"] = from_src[fill]
+    rep["platform_checks"] = {"filled_from_source_name": int(fill.sum()), "conflicts_satellite_vs_source": int(conflict.sum())}
+    if conflict.any():
+        print(f"WARNING: {int(conflict.sum())} {key} rows have a 'satellite' value that disagrees with the source name; check schema._PLATFORM_MAP")
+    for raw_col, dst in (("version", "version"), ("scan", "scan"), ("track", "track"), ("type", "fire_type")):
+        if raw_col in df.columns:
+            out[dst] = df[raw_col].values
     out["month"] = out["date"].dt.to_period("M").astype(str)
     before = len(out)
     out = out[out["month"] >= START[key]]

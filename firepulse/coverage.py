@@ -90,3 +90,14 @@ def month_status(index, counts, covered, evidence, start_period):
             st = "INSUFFICIENT_EVIDENCE"
         rows.append((p, st, cd, dim, evidence if cd or n else "NONE"))
     return pd.DataFrame(rows, columns=["month", "status", "covered_days", "days_in_month", "evidence"]).set_index("month")
+
+
+def source_summary(folder):
+    """Coverage evidence for ONE FIRMS source folder (platform/stream identity is kept; nothing is pooled)."""
+    wins, ev = folder_windows(folder)
+    cov = covered_days_by_month(wins)
+    full = [str(p) for p, n in cov.items() if n >= p.days_in_month]
+    return {"source": folder.name, "evidence": ev, "windows": len(wins),
+            "first_covered_day": str(min(a for a, _ in wins)) if wins else None,
+            "last_covered_day": str(max(b for _, b in wins)) if wins else None,
+            "fully_covered_months": len(full), "first_full_month": full[0] if full else None, "last_full_month": full[-1] if full else None}

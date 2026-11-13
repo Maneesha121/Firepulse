@@ -17,7 +17,7 @@ def selection_from_payload(payload):
 
 def handle_area(ds, payload):
     sel = selection_from_payload(payload)
-    return area.analyze(ds, sel, payload.get("start"), payload.get("end"))
+    return area.analyze(ds, sel, payload.get("start"), payload.get("end"), payload.get("platforms"), payload.get("baseline"))
 
 
 def health(ds):

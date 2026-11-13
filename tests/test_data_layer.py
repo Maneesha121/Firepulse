@@ -132,6 +132,7 @@ def test_error_reply_is_not_cached_and_header_only_reply_is(tmp_path, monkeypatc
     monkeypatch.setattr(download, "RAW", tmp_path)
     monkeypatch.setattr(download, "SOURCES", {"modis": "SRC"})
     monkeypatch.setattr(download, "EXTRA_SOURCES", {})
+    monkeypatch.setattr(download, "CHUNK_DAYS", 10)   # this test is about caching, not window size (default is now 5; see test_stage5b)
     monkeypatch.setattr(download.time, "sleep", lambda *_: None)
     replies = iter(["Invalid MAP_KEY", "latitude,longitude,acq_date\n"])
     monkeypatch.setattr(download, "_get", lambda url: next(replies))

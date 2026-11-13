@@ -4,7 +4,7 @@ import pandas as pd
 from .config import GRID, BBOX, WEB_DATA, OUT, SPLICE, MIN_BASELINE, DEMO, MODIS_MIN_CONF
 
 
-def export_web(agg, region, tables, val_summary, avail, statuses=None, cleaning=None):
+def export_web(agg, region, tables, val_summary, avail, statuses=None, cleaning=None, product_availability=None, source_coverage=None):
     WEB_DATA.mkdir(parents=True, exist_ok=True)
     months = list(region.index)
     midx = {str(p): i for i, p in enumerate(months)}
@@ -27,6 +27,7 @@ def export_web(agg, region, tables, val_summary, avail, statuses=None, cleaning=
             "data_origin": "SYNTHETIC_DEMO" if DEMO else "NASA_FIRMS",
             "status": {k: [str(v) for v in st["status"]] for k, st in (statuses or {}).items()},
             "coverage_evidence": {k: (st["evidence"].mode().iat[0] if len(st) else "NONE") for k, st in (statuses or {}).items()},
+            "product_availability": product_availability, "source_coverage": source_coverage or [],
             "cleaning": cleaning, "ratio_basis": "REGION (whole processing region)",
             "min_baseline": MIN_BASELINE, "filters": {"modis_min_conf": MODIS_MIN_CONF,
                                                       "viirs_keep": ["nominal", "high"]}}

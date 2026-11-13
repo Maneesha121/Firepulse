@@ -5,7 +5,7 @@ grid-cell centres. Months whose data status is not OBSERVED_* are unknown (null)
 """
 import json
 import numpy as np, pandas as pd
-from . import spatial, harmonize, anomaly, coverage
+from . import spatial, harmonize, anomaly, coverage, sensor_transition, stream_join
 from .config import CLEAN, WEB_DATA, MIN_BASELINE, MIN_YEARS
 
 PLATFORM_COLS = ["TERRA", "AQUA", "SNPP", "NOAA20", "NOAA21", "UNKNOWN"]
@@ -43,6 +43,17 @@ class Dataset:
         sp = self.meta.get("splice_idx")
         self.splice = str(self.months[sp]) if sp is not None else None
         self._lat = self.points["lat"].to_numpy(); self._lon = self.points["lon"].to_numpy()
+        # First/last month with a detection per platform in the processed record (inferred from the data, NOT an
+        # official mission date). Used by sensor_transition to mark platform-months as unavailable instead of zero.
+        span = self.points.groupby("platform")["month"].agg(["min", "max"])
+        self.platform_span = {p: (pd.Period(r["min"], "M"), pd.Period(r["max"], "M")) for p, r in span.iterrows()}
+        self._region_series = None
+
+    def region_series(self):
+        """Monthly series for the whole processing region (cached). Used to validate the regional-ratio fallback."""
+        if self._region_series is None:
+            self._region_series = _series_from_points(self, self.points)
+        return self._region_series
 
     def mask(self, sel):
         return spatial.points_in_selection(self._lat, self._lon, sel)
@@ -66,7 +77,10 @@ def _month_range(ds, start, end):
 def full_series(ds, sel):
     """Monthly series for the WHOLE record inside the selection (baselines must not depend on the date range)."""
     m = ds.mask(sel)
-    pts = ds.points[m]
+    return _series_from_points(ds, ds.points[m]), int(m.sum())
+
+
+def _series_from_points(ds, pts):
     cnt = pts.groupby(["month", "platform"]).size().unstack(fill_value=0)
     cnt.index = pd.PeriodIndex(cnt.index, freq="M")
     cnt = cnt.reindex(ds.months).fillna(0).astype(int)
@@ -86,7 +100,7 @@ def full_series(ds, sel):
         k = plat_ok.get(c)
         ok = ds.status[k].isin(coverage.OBSERVED) if k else pd.Series(True, index=ds.months)
         out["n_" + c] = np.where(ok, cnt[c], np.nan)
-    return out, int(m.sum())
+    return out
 
 
 def _choose_tables(ds, base):
@@ -99,24 +113,37 @@ def _choose_tables(ds, base):
     return ds.region_tables, "REGION (selection has too few usable overlap months; regional ratio applied, treat as low reliability)"
 
 
-def _baseline_n(s):
+BASELINES = {"all_other_years": "same calendar month, all other years in the processed record (past and future)",
+             "past_only": "same calendar month, earlier years only (what was knowable at the time; retrospective, not a forecast)"}
+
+
+def _baseline_n(s, past_only=False):
     n = []
     for ts in s.index:
-        m = (s.index.month == ts.month) & (s.index.year != ts.year)
+        m = (s.index.month == ts.month) & ((s.index.year < ts.year) if past_only else (s.index.year != ts.year))
         n.append(int(s[m].notna().sum()))
     return n
 
 
-def analyze(ds, sel, start=None, end=None):
+def analyze(ds, sel, start=None, end=None, platforms=None, baseline="all_other_years"):
+    if baseline is None:
+        baseline = "all_other_years"
+    if baseline not in BASELINES:
+        raise AreaError(f"baseline must be one of {sorted(BASELINES)}.")
+    past = baseline == "past_only"
+    try:
+        psel = sensor_transition.parse_selection(platforms)
+    except sensor_transition.PlatformSelectionError as e:
+        raise AreaError(str(e))
     a, b = _month_range(ds, start, end)
     base, n_points = full_series(ds, sel)
     tables, basis = _choose_tables(ds, base)
     reg = base[["modis", "viirs"]]
     hz = harmonize.harmonize(reg, tables, splice=ds.splice)
-    z_h = anomaly.series_anomalies(hz["harmonized"])
-    z_m = anomaly.series_anomalies(reg["modis"])
-    z_v = anomaly.series_anomalies(reg["viirs"])
-    bn = _baseline_n(hz["harmonized"])
+    z_h = anomaly.series_anomalies(hz["harmonized"], past_only=past)
+    z_m = anomaly.series_anomalies(reg["modis"], past_only=past)
+    z_v = anomaly.series_anomalies(reg["viirs"], past_only=past)
+    bn = _baseline_n(hz["harmonized"], past)
     rng = (base.index >= a) & (base.index <= b)
     rows = []
     for i, p in enumerate(base.index):
@@ -149,7 +176,9 @@ def analyze(ds, sel, start=None, end=None):
         "range": {"start": str(a), "end": str(b)},
         "n_points_in_selection_all_time": n_points,
         "ratio_basis": basis,
-        "method": {"baseline": f"same calendar month, all other years in the processed record (>= {MIN_BASELINE} years, MAD > 0)",
+        "baseline_mode": baseline,
+        "method": {"baseline": f"{BASELINES[baseline]} (>= {MIN_BASELINE} usable years, MAD > 0; otherwise no anomaly is shown)",
+                   "baseline_mode": baseline,
                    "z": "0.6745*(x-median)/MAD", "spatial_filter": "exact point-in-polygon on detections (edge points inside)",
                    "min_area_ratio_months": MIN_AREA_RATIO_MONTHS},
         "months": _records(df),
@@ -157,6 +186,14 @@ def analyze(ds, sel, start=None, end=None):
         "seasonal": _records(_seasonal(df)),
     }
     out["summary"] = _summary(df, sel, out, base)
+    out["sensor_intelligence"] = sensor_transition.build(ds, base, tables, basis, df, a, b, psel,
+                                                         out["summary"]["missing_data_periods"])
+    out["sensor_intelligence"]["stream_join"] = stream_join.build(ds, base, a, b)
+    out["sensor_intelligence"]["notes"].extend(out["sensor_intelligence"]["stream_join"]["notes"])
+    if past:
+        out["summary"]["limitations"].append("Past-only baseline: months in the first years of the record have fewer than the minimum "
+                                             f"{MIN_BASELINE} earlier years and show no anomaly. The score is retrospective, not a forecast. The VIIRS/MODIS ratio behind the "
+                                             "harmonised index is still estimated from the whole record, so only the baseline, not the index, is past-only.")
     return out
 
 
