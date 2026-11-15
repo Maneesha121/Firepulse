@@ -1,0 +1,36 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Dependencies
+node_modules/
+
+# Local data and satellite downloads
+data/
+data_demo/
+**/data/
+*.csv
+*.zip
+*.parquet
+*.tif
+*.tiff
+
+# Credentials and environment files
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+firms_key.txt
+credentials*
+
+# Logs and generated files
+*.log
+coverage/
+dist/
+build/

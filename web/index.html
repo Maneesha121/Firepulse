@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FirePulse: harmonized burning-activity calendar</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<style>
+:root{--bg:#fafaf7;--fg:#1d1d1b;--mut:#5f5f58;--card:#fff;--bd:#d8d6cc;--ac:#b4400f;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#171715;--fg:#ecebe4;--mut:#a3a29a;--card:#222220;--bd:#3a3935;--ac:#f08a5d}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+header{padding:12px 18px;border-bottom:1px solid var(--bd)}h1{margin:0;font-size:1.3rem}h2{font-size:1rem;margin:0 0 8px}
+.sub{color:var(--mut);font-size:.85rem}.demo{background:#b4400f;color:#fff;padding:6px 18px;font-weight:600;display:none}
+main{display:grid;grid-template-columns:minmax(300px,1fr) minmax(320px,1.4fr);gap:14px;padding:14px;max-width:1400px;margin:auto}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:14px}
+#map{height:420px;border-radius:8px;border:1px solid var(--bd)}
+label{font-size:.8rem;color:var(--mut)}select,input,button{font:inherit;padding:4px 6px;margin:2px;border:1px solid var(--bd);border-radius:5px;background:var(--card);color:var(--fg)}
+input.n{width:5.2em}button{cursor:pointer}button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+#cal{overflow-x:auto}table{border-collapse:collapse;font-size:.75rem}th,td{padding:2px 4px;text-align:center;min-width:34px;border:1px solid var(--bd)}
+.big{font-size:1.35rem;font-weight:700}.note{font-size:.78rem;color:var(--mut)}
+.legend{display:flex;align-items:center;gap:6px;font-size:.75rem;flex-wrap:wrap}.ramp{height:10px;width:140px;border-radius:3px}
+.chip{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.72rem;border:1px solid var(--bd);margin:2px 0}.chip.ok{border-color:#1b9e77;color:#1b9e77}.chip.warn{border-color:var(--ac);color:var(--ac)}
+.err{color:#b00020;font-size:.82rem}ul.lim{margin:4px 0 0 18px;padding:0;font-size:.78rem;color:var(--mut)}td.cell{cursor:pointer}td.sel{outline:2px solid var(--ac)}
+.hatch{background:repeating-linear-gradient(45deg,#8883,#8883 3px,transparent 3px,transparent 6px)}
+table.mini td,table.mini th{min-width:30px}th.tot,td.tot{font-weight:600;border-left:2px solid var(--bd)}
+.sensor{max-width:1400px;margin:0 auto;padding:0 14px 28px}.sensor h2.sh{font-size:1.15rem;margin:6px 0}.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.span2{grid-column:1/-1}
+@media (max-width:900px){.sgrid{grid-template-columns:1fr}}
+.sensor .card{margin-bottom:0}.ch{position:relative;height:300px}.ch.tall{height:340px}.sensor table{font-size:.74rem}.sensor td,.sensor th{min-width:0;padding:2px 6px}.sensor td.l,.sensor th.l{text-align:left}
+.chip.bad{border-color:#b00020;color:#b00020}.sbox{background:var(--card);border:1px solid var(--bd);border-left:4px solid var(--ac);border-radius:6px;padding:8px 12px;margin:8px 0;font-size:.8rem}
+.sbox ul{margin:4px 0 0 18px;padding:0}.sensor details{margin-top:10px}.sensor summary{cursor:pointer;font-weight:600}.sensor tr.pick{cursor:pointer}.sensor tr.pick.sel td{outline:1px solid var(--ac)}
+.sensor .na{color:var(--mut);font-style:italic}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media (max-width:900px){.two{grid-template-columns:1fr}}
+.loading-screen{position:fixed;inset:0;z-index:10000;overflow:hidden;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 45%,#102438 0,#081421 42%,#050a12 100%);color:#f4f3ee;font-family:system-ui,sans-serif;isolation:isolate;transition:opacity .42s ease,visibility .42s ease}
+.loading-screen:before,.loading-screen:after{position:absolute;inset:0;content:"";pointer-events:none}
+.loading-screen:before{opacity:.5;background-image:radial-gradient(1px 1px at 8% 18%,#fff 50%,transparent 100%),radial-gradient(1px 1px at 25% 72%,#9dc8e0 50%,transparent 100%),radial-gradient(1.5px 1.5px at 78% 14%,#fff 50%,transparent 100%),radial-gradient(1px 1px at 91% 60%,#b4d7e8 50%,transparent 100%),radial-gradient(1px 1px at 63% 88%,#fff 50%,transparent 100%),radial-gradient(1px 1px at 42% 31%,#fff 50%,transparent 100%);background-size:380px 320px,470px 390px,560px 460px,420px 360px,510px 430px,620px 500px}
+.loading-screen:after{z-index:-1;background:radial-gradient(ellipse at 50% 105%,#d0481918,transparent 46%)}
+.loading-screen.is-exiting{opacity:0;visibility:hidden;pointer-events:none}
+.loading-layout{position:relative;z-index:1;display:grid;justify-items:center;width:min(100%,760px);text-align:center}
+.loading-brand{display:flex;align-items:center;gap:10px;margin-bottom:2px;color:#f8f6ef;font-size:.78rem;font-weight:750;letter-spacing:.24em;text-transform:uppercase}
+.loading-mark{display:grid;width:27px;height:27px;place-items:center;border:1px solid #ff9a4a8c;border-radius:50%;box-shadow:0 0 19px #ff692e3d;color:#ff9a4a;font-size:.85rem}
+.loading-kicker{margin:8px 0 0;color:#ffad67;font-size:.69rem;font-weight:650;letter-spacing:.2em;text-transform:uppercase}
+.loading-title{margin:5px 0 0;font-size:clamp(1.4rem,3vw,2.1rem);font-weight:550;letter-spacing:.015em}
+.loading-subtitle{margin:7px 0 0;color:#b1c2cf;font-size:.88rem}
+.earth-scene{display:block;width:min(80vw,680px);height:auto;max-height:51vh;margin:-3px 0 -12px;overflow:visible}
+.orbit-line{fill:none;stroke:#8daec144;stroke-width:1.15;stroke-dasharray:3 8}
+.earth-halo{fill:none;stroke:#49a9d8;stroke-width:7;opacity:.13;filter:url(#soft-glow)}
+.earth-atmosphere{fill:none;stroke:#79d5ff;stroke-width:2.5;opacity:.85;filter:url(#soft-glow)}
+.earth-body{transform-box:view-box;transform-origin:320px 256px;animation:earth-breathe 7s ease-in-out infinite}
+.earth-land{fill:#4e6470;opacity:.86}
+.earth-coast{fill:none;stroke:#a8bec1;stroke-width:1;opacity:.24}
+.fire-glow{fill:url(#fire-glow)}
+.scan-beam{transform-box:view-box;transform-origin:320px 256px;animation:scan-sweep 8s linear infinite}
+.satellite-orbit{transform-box:view-box;transform-origin:320px 256px;animation:satellite-orbit 24s linear infinite}
+.loading-advice{width:min(100%,410px);min-height:77px;margin-top:-3px;padding:12px 18px;border:1px solid #b5d5e22b;border-radius:10px;background:linear-gradient(135deg,#102232d9,#0b1724e8);box-shadow:0 10px 38px #0005,0 0 24px #e9753020;text-align:left;backdrop-filter:blur(8px)}
+.advice-label{display:block;margin-bottom:4px;color:#ffad67;font-size:.62rem;font-weight:700;letter-spacing:.17em;text-transform:uppercase}
+.advice-copy{margin:0;color:#e4e9e9;font-size:.79rem;line-height:1.45;transition:opacity .2s ease,transform .2s ease}
+.advice-copy.is-changing{opacity:0;transform:translateY(4px)}
+.loading-state{display:flex;align-items:center;gap:9px;margin:17px 0 0;color:#becbd3;font-size:.77rem;letter-spacing:.025em}
+.loading-pulse{width:7px;height:7px;border-radius:50%;background:#ff9351;box-shadow:0 0 12px #ff7648;animation:status-pulse 1.5s ease-in-out infinite}
+.loading-error{max-width:520px;margin-top:16px;padding:12px 16px;border:1px solid #f38e73;border-radius:8px;background:#281511;color:#ffe5dc;font-size:.83rem;text-align:left}
+.loading-error[hidden]{display:none}
+.loading-error p{margin:0 0 8px}
+.loading-error button{margin:0;border-color:#ff9b72;background:#a6422a;color:#fff}
+.ember{position:absolute;z-index:0;bottom:-12px;width:3px;height:3px;border-radius:50%;background:#ff9a57;box-shadow:0 0 9px 2px #f15b2b88;opacity:0;animation:ember-rise var(--ember-duration,8s) linear var(--ember-delay,0s) infinite}
+.ember:nth-of-type(1){left:12%;--ember-duration:9s;--ember-delay:-3s}.ember:nth-of-type(2){left:24%;--ember-duration:7s;--ember-delay:-6s}.ember:nth-of-type(3){left:38%;--ember-duration:10s;--ember-delay:-2s}.ember:nth-of-type(4){left:57%;--ember-duration:8s;--ember-delay:-5s}.ember:nth-of-type(5){left:72%;--ember-duration:9.5s;--ember-delay:-7s}.ember:nth-of-type(6){left:87%;--ember-duration:7.5s;--ember-delay:-1s}
+@keyframes scan-sweep{to{transform:rotate(360deg)}}
+@keyframes satellite-orbit{to{transform:rotate(360deg)}}
+@keyframes earth-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.012)}}
+@keyframes status-pulse{0%,100%{opacity:.55;transform:scale(.82)}50%{opacity:1;transform:scale(1.18)}}
+@keyframes ember-rise{0%{opacity:0;transform:translate3d(0,0,0) scale(.5)}12%{opacity:.85}82%{opacity:.45}100%{opacity:0;transform:translate3d(18px,-78vh,0) scale(1.35)}}
+@media(max-width:600px){.loading-screen{padding:18px}.loading-title{max-width:18ch}.loading-subtitle{max-width:34ch;font-size:.8rem}.earth-scene{width:min(104vw,560px);max-height:43vh;margin:4px 0 0}.loading-advice{min-height:74px;padding:11px 14px}.loading-state{margin-top:14px}}
+@media(prefers-reduced-motion:reduce){.loading-screen,.advice-copy{transition:none}.earth-body,.scan-beam,.satellite-orbit,.loading-pulse,.ember{animation:none}.loading-screen.is-exiting{display:none}}
+</style></head><body>
+<div class="loading-screen" id="loadingScreen" role="status" aria-live="polite" aria-label="Loading FirePulse">
+ <span class="ember"></span><span class="ember"></span><span class="ember"></span><span class="ember"></span><span class="ember"></span><span class="ember"></span>
+ <div class="loading-layout">
+  <div class="loading-brand"><span class="loading-mark" aria-hidden="true">F</span> FirePulse</div>
+  <p class="loading-kicker">Satellite wildfire awareness</p>
+  <h1 class="loading-title">Seeing fire activity from above</h1>
+  <p class="loading-subtitle">A sensor-aware view of satellite hotspot observations across Sri Lanka.</p>
+  <svg class="earth-scene" viewBox="0 0 640 500" role="img" aria-label="Illustration of Earth scanned by an orbiting satellite">
+   <defs>
+    <radialGradient id="earth-fill" cx="38%" cy="35%" r="72%"><stop stop-color="#21445b"/><stop offset=".62" stop-color="#112b40"/><stop offset="1" stop-color="#081421"/></radialGradient>
+    <radialGradient id="fire-glow" cx="50%" cy="50%" r="50%"><stop stop-color="#ffd178" stop-opacity=".95"/><stop offset=".28" stop-color="#ff762f" stop-opacity=".63"/><stop offset="1" stop-color="#e74821" stop-opacity="0"/></radialGradient>
+    <linearGradient id="scan-fill" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#80e3ff" stop-opacity=".34"/><stop offset="1" stop-color="#48a9dc" stop-opacity="0"/></linearGradient>
+    <filter id="soft-glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="7"/></filter>
+    <clipPath id="earth-clip"><circle cx="320" cy="256" r="155"/></clipPath>
+   </defs>
+   <ellipse class="orbit-line" cx="320" cy="256" rx="270" ry="176"/>
+   <circle class="earth-halo" cx="320" cy="256" r="163"/>
+   <g class="earth-body">
+    <circle cx="320" cy="256" r="158" fill="#2879a5" opacity=".16" filter="url(#soft-glow)"/>
+    <circle cx="320" cy="256" r="155" fill="url(#earth-fill)"/>
+    <g clip-path="url(#earth-clip)">
+     <path class="earth-land" d="M197 161l18-22 31-9 13 10 29-3 15 13-7 18-21 4-9 16-22 8-7 22-18 9-6 28-14 3-11-18 4-24-14-19 2-17-12-8zm91 100 19-17 18 7 11 22-10 28-13 34-17 17-11-14-7-27-13-19 4-18zm32-145 24-17 34 3 21 17 26 3 21 24-8 17-22 7-11 20-20 1-12 21-18 3-7-19-20-4-10-19-19-5-8-19 13-12zm91 153 19-9 20 12 3 20-20 11-17-8zm-28 37 15-12 18 7 7 20-9 17-19-5"/>
+     <path class="earth-coast" d="M197 161l18-22 31-9 13 10 29-3 15 13-7 18m-67 42 17 12 13 20m34 19 19-17 18 7m-13-123 24-17 34 3 21 17 26 3"/>
+     <ellipse class="fire-glow" cx="255" cy="311" rx="92" ry="82"/>
+     <ellipse class="fire-glow" cx="405" cy="223" rx="65" ry="55" opacity=".68"/>
+     <circle cx="257" cy="311" r="3" fill="#ffd278"/><circle cx="280" cy="284" r="2" fill="#ff9850"/>
+     <circle cx="393" cy="223" r="2.5" fill="#ffd278"/><circle cx="418" cy="244" r="2" fill="#ff9850"/>
+     <g class="scan-beam"><path d="M320 256L465 176A166 166 0 0 1 472 318Z" fill="url(#scan-fill)"/><path d="M320 256L465 176" stroke="#9deaff" stroke-width="1.5" opacity=".86"/></g>
+    </g>
+    <circle class="earth-atmosphere" cx="320" cy="256" r="155"/>
+   </g>
+   <g class="satellite-orbit">
+    <g transform="translate(320 74)" fill="none" stroke="#d7e8ef" stroke-linecap="round" stroke-linejoin="round">
+     <path d="M-8-5h16v13H-8z" fill="#dbe8e8" stroke-width="1.5"/>
+     <path d="M-8-2h-19v8h19m16-8h19v8H8" stroke="#7ed7f5" stroke-width="2"/>
+     <path d="M0-5v-8m-4 0h8M0 8v7" stroke-width="1.5"/>
+     <circle cy="16" r="2" fill="#ff9a51" stroke="none"/>
+    </g>
+   </g>
+  </svg>
+  <section class="loading-advice" aria-label="FirePulse field note"><span class="advice-label" id="adviceLabel">Field note 01</span><p class="advice-copy" id="loadingTip">A hotspot is a satellite-detected thermal anomaly—not automatically a confirmed wildfire.</p></section>
+  <p class="loading-state"><span class="loading-pulse" aria-hidden="true"></span><span id="loadingStatus">Loading satellite observations…</span></p>
+  <div class="loading-error" id="loadingError" role="alert" hidden><p id="loadingErrorMessage"></p><button id="retryStartup" type="button">Retry loading</button></div>
+ </div>
+</div>
+<div id="app-shell" inert aria-hidden="true">
+<div class="demo" id="demo">DEMO DATA: synthetic values for testing. Not real observations. Run the real pipeline to replace them.</div>
+<header><h1>FirePulse</h1><div class="sub">Sensor-aware calendar of satellite hotspot activity (MODIS + VIIRS). Hotspots are detections, not fire events or burned area.</div></header>
+<main>
+<div>
+ <div id="map" role="application" aria-label="Map: draw an area of interest"></div>
+ <div class="card" style="margin-top:14px"><h2>Area of interest</h2>
+  <div class="note">Draw a polygon or rectangle (map toolbar), click a point, enter a box, or load a GeoJSON polygon. Use the edit tool to modify a shape.</div>
+  <label>West <input class="n" id="w"></label><label>South <input class="n" id="s"></label>
+  <label>East <input class="n" id="e"></label><label>North <input class="n" id="n"></label>
+  <button id="applyBox">Apply box</button><br>
+  <button id="pointMode">Select a point</button><label>radius km <input class="n" id="rad" value="10"></label>
+  <label><input type="checkbox" id="snap"> use the 0.1&deg; grid cell instead</label><br>
+  <button id="reset">Clear selection (whole region)</button><button id="dlGj">Save area (GeoJSON)</button>
+  <label>Load GeoJSON <input type="file" id="gjFile" accept=".json,.geojson,application/geo+json"></label>
+  <div><span class="chip" id="modeChip"></span> <span class="chip" id="originChip"></span></div>
+  <div class="note" id="aoiText"></div><div class="err" id="aoiErr" role="alert"></div></div>
+ <div class="card"><h2>Area summary</h2><div id="summary" class="note">Whole processing region.</div></div>
+ <div class="card"><h2>Method and limits</h2><div class="note">
+  VIIRS (375 m) detects many more small fires than MODIS (1 km), so raw counts are not comparable.
+  VIIRS months are divided by a calendar-month ratio estimated where both sensors operated (2012 onward),
+  giving a <b>MODIS-equivalent index</b>. The shaded band is the inter-year IQR of that ratio.
+  The ratio is estimated for the whole region and applied to your area, so small areas are less reliable.
+  Anomalies compare a month with the same calendar month in other years (median and MAD).
+  Detections include agricultural burning and other heat sources. Months before 2012 cannot be checked against VIIRS.
+  <div id="val"></div></div></div>
+</div>
+<div>
+ <div class="card"><h2>Date range and view</h2>
+  <label>From <select id="y0"></select></label><label>To <select id="y1"></select></label>
+  <label>Calendar shows <select id="mode"><option value="h">Harmonized index</option><option value="mod">MODIS detections</option><option value="vii">VIIRS detections</option><option value="comb">Raw combined detections</option><option value="z">Anomaly (robust z)</option></select></label>
+  <label>Anomaly baseline <select id="baseline"><option value="all_other_years">Same month, all other years</option><option value="past_only">Same month, earlier years only</option></select></label> <span class="note" id="baseNote"></span>
+  <div id="peaks" class="note"></div></div>
+ <div class="card"><h2>Burning-activity calendar</h2><div id="cal"></div><div class="legend" id="legend"></div>
+  <div class="note" id="calNote">Click a month to see its individual detections on the map (needs python serve.py).</div></div>
+ <div class="card"><h2>Monthly series: raw sensors vs harmonized</h2><div style="height:300px"><canvas id="chart" aria-label="Line chart of monthly hotspot counts"></canvas></div>
+  <div class="note">Raw MODIS and VIIRS counts differ in scale; the harmonized line is on the MODIS-equivalent scale.</div></div>
+ <div class="card"><h2>How unusual is a month?</h2>
+  <label>Month <select id="tM"></select></label><label>Year <select id="tY"></select></label>
+  <div id="anom"></div></div>
+ <div class="card"><h2>Downloads</h2>
+  <button class="p" id="dlCsv">Monthly CSV</button><button id="dlPng">Chart PNG</button><button id="dlRep">Report (HTML)</button><button id="dlPts">Month detections (CSV)</button>
+  <div class="note">Point-level hotspot CSV: use export_hotspots.py (see README).</div></div>
+</div>
+</main>
+<section class="sensor" id="sensorSec" aria-label="Sensor Intelligence">
+ <h2 class="sh">Sensor Intelligence: how observed detections change across the MODIS-to-VIIRS transition</h2>
+ <div><span class="chip" id="scOrigin"></span> <span class="chip" id="scCal"></span> <span class="chip" id="scEvid"></span> <span class="chip" id="scSel"></span></div>
+ <div class="sbox"><b>Read this first.</b> Everything here compares <b>observed satellite detections</b>. A difference between MODIS and VIIRS counts is not a difference in how much actually burned.
+  Ratios are observed detection ratios for this area and period, <b>not universal sensor correction factors</b>. The harmonised index is a MODIS-equivalent index, not a physical fire count.
+  Months with no usable data are shown as gaps or &ldquo;unavailable&rdquo;, never as zero.</div>
+ <div class="card" style="margin-bottom:14px"><h2>Platforms and period</h2>
+  <div><b>MODIS</b> <label><input type="checkbox" class="pl" value="TERRA" checked> Terra</label> <label><input type="checkbox" class="pl" value="AQUA" checked> Aqua</label>
+   &nbsp; <b>VIIRS</b> <label><input type="checkbox" class="pl" value="SNPP" checked> S-NPP</label> <label><input type="checkbox" class="pl" value="NOAA20" checked> NOAA-20</label> <label><input type="checkbox" class="pl" value="NOAA21" checked> NOAA-21</label>
+   <button id="plAll">All platforms</button> <button id="scJson">Download this section (JSON)</button></div>
+  <div class="note">All five ticked = the existing MODIS-family vs VIIRS-family comparison (platforms that did not exist yet are simply absent). A subset is strict: a month counts only if every ticked platform has data, so platform turn-on dates cannot distort a ratio. The harmonised index always uses all available platforms.</div>
+  <div class="note" id="scPeriod"></div><div class="err" id="scErr" role="alert"></div></div>
+ <div id="scState" class="note"></div>
+ <div id="scBody">
+ <div id="scNotes" class="sbox"></div>
+ <div class="sgrid">
+  <div class="card span2"><h2>A. Monthly MODIS vs VIIRS comparison</h2><div class="ch tall"><canvas id="scA" aria-label="Line chart: monthly MODIS, VIIRS, raw combined and harmonised index"></canvas></div>
+   <div class="note">Left axis: MODIS detections and the harmonised index (MODIS-equivalent scale). Right axis: VIIRS and raw combined detections. Green band = overlap (both sensors observed); grey band = incomplete or unverifiable month (no value, not zero). Dotted line = a platform first appears in the record.</div><div id="scMiss" class="note"></div></div>
+  <div class="card"><h2>B. VIIRS/MODIS ratio by calendar month</h2><div class="ch"><canvas id="scB" aria-label="Median VIIRS to MODIS ratio by calendar month with interquartile band"></canvas></div><div id="scBt" style="overflow-x:auto"></div></div>
+  <div class="card"><h2>C. Ratio over time</h2><div class="ch"><canvas id="scC" aria-label="Monthly VIIRS to MODIS ratio over time"></canvas></div><div id="scCt" class="note"></div></div>
+  <div class="card"><h2>D. Platform contribution to observed detections</h2><label>Show <select id="scDmode"><option value="n">detections</option><option value="p">percent of detections</option></select></label>
+   <div class="ch"><canvas id="scD" aria-label="Stacked bars of detections per platform per year"></canvas></div><div id="scDt" style="overflow-x:auto"></div></div>
+  <div class="card"><h2>F. Sensitivity to period and platform pair</h2><div id="scF" style="overflow-x:auto"></div></div>
+  <div class="card span2"><h2>E. Leave-one-year-out validation (predict MODIS from VIIRS)</h2><div id="scEtxt" class="note"></div>
+   <div class="two"><div><label>Held-out year <select id="scEy"></select></label><div class="ch"><canvas id="scE" aria-label="Actual versus predicted MODIS monthly counts for the held-out year"></canvas></div></div>
+    <div><div class="ch" style="margin-top:22px"><canvas id="scE2" aria-label="sMAPE by held-out year"></canvas></div></div></div>
+   <div id="scEt" style="overflow-x:auto;margin-top:8px"></div></div>
+  <div class="card span2"><h2>G. Platform timeline and product streams</h2><div id="scG" style="overflow-x:auto"></div></div>
+ </div>
+ <details><summary>How to read these charts</summary><div class="note">
+  <p><b>A.</b> Raw MODIS and VIIRS counts differ in scale because the sensors differ in resolution and detection behaviour. The harmonised index divides VIIRS months by the calendar-month ratio so that it is on the MODIS-equivalent scale. It is an index, not a count of fires. Raw combined is simply MODIS + VIIRS and mixes two different measuring scales.</p>
+  <p><b>B.</b> For each calendar month, the median of VIIRS/MODIS over usable overlap months in the selected dates; the band is the 25th to 75th percentile. Usable = both sensors observed and MODIS count &ge; 5. Fewer than 5 usable years: no ratio is drawn. 5&ndash;9 years: exploratory. The dashed line shows the whole-record median for comparison.</p>
+  <p><b>C.</b> The same ratio month by month. Hollow points are months with 1&ndash;4 MODIS detections: the ratio exists but is unstable and is not used. Months with zero MODIS detections have no ratio. The stepped line is each year&rsquo;s median ratio (needs 6+ usable months). A drift may reflect platform mix, season, or area size rather than sensor behaviour.</p>
+  <p><b>D.</b> Share of observed detections per platform. It is not a share of fires. Platforms observe over different periods; unavailable months are missing, not zero.</p>
+  <p><b>E.</b> Each overlap year is held out, the ratio is fitted on the other years only, and MODIS counts for the held-out year are predicted from its VIIRS counts. sMAPE is 0&ndash;200%; absolute bias is |predicted &minus; actual| in total detections. Correlation within a year mostly reflects the seasonal cycle, so a high value does not prove a good fit. Years with too few valid months show no metrics. Compare with the climatology column (median MODIS of the same month in other years).</p>
+  <p><b>F.</b> How much the observed ratio moves between time windows and between platform pairs. It is a spread of estimates, not a confidence interval. All thresholds are engineering choices (see docs/methodology.md).</p></div></details>
+ </div>
+</section>
+<section class="sensor" id="qualSec" aria-label="Data quality and filter sensitivity">
+ <h2 class="sh">Data quality and filter sensitivity: how quality choices change the calendar, the ratio and the anomalies</h2>
+ <div><span class="chip" id="qOrigin"></span> <span class="chip" id="qActive"></span> <span class="chip" id="qSel"></span></div>
+ <div class="sbox"><b>How to read this section.</b> Raw downloaded records are never changed. <b>Removed</b> = invalid records only (unreadable or impossible coordinates or dates, exact duplicate rows).
+  <b>Flagged</b> = kept, but marked as unusual (the flags are stored in a separate table). <b>Optional filter</b> = a profile of analytical rules that you can switch to see how results move.
+  A profile that keeps fewer records is not &ldquo;more accurate&rdquo;: it answers a different question. High FRP and isolated detections are flags, not errors.</div>
+ <div class="err" id="qErr" role="alert"></div><div id="qState" class="note"></div>
+ <div class="sgrid" id="qBody" style="display:none">
+  <div class="card span2"><h2>1. What was removed, flagged and kept (whole processing region)</h2><div id="qSteps" style="overflow-x:auto"></div></div>
+  <div class="card span2"><h2>2. Quality flags in the selected area (records are kept; flags are stored separately)</h2><div id="qFlags" style="overflow-x:auto"></div></div>
+  <div class="card span2"><h2>3. Filter profiles: records kept, ratio and anomalies</h2><div id="qProfiles" style="overflow-x:auto"></div>
+   <div class="note">Tick profiles to draw them below. &ldquo;vs active&rdquo; compares each profile with the active profile behind the main calendar. Percent changes in months with very few detections can be large and are not meaningful alone.</div></div>
+  <div class="card span2"><h2>4. Monthly harmonised index under the ticked profiles</h2><div class="ch tall"><canvas id="qA" aria-label="Line chart of the monthly harmonised index under different quality-filter profiles"></canvas></div>
+   <div class="note">Gaps are months with no valid index (unknown, not zero). The index is on the MODIS-equivalent scale; it is not a count of fires.</div></div>
+  <div class="card"><h2>5. VIIRS/MODIS ratio by profile</h2><div class="ch"><canvas id="qB" aria-label="Median VIIRS to MODIS ratio by quality profile"></canvas></div><div id="qBt" class="note"></div></div>
+  <div class="card"><h2>6. Calendar change for one profile</h2><label>Compare <select id="qCmp"></select></label>
+   <div id="qDelta" style="overflow-x:auto"></div><div class="note">Cell = percent change of the harmonised index versus the active profile. Hatched = no value in one of the two profiles.</div></div>
+  <div class="card span2"><h2>7. Anomaly months that appear or disappear</h2><div id="qAnom"></div></div>
+  <div class="card span2"><h2>8. Platform differences (whole processing region, active profile)</h2><div id="qPlat" style="overflow-x:auto"></div></div>
+  <div class="card span2"><h2>Downloads and map</h2>
+   <button id="qCsv">Sensitivity (CSV)</button><button id="qJson">Quality report (JSON)</button>
+   <label>Detections shown when you click a calendar month <select id="qPts"><option value="">Active profile (what the calendar counts)</option><option value="all_valid">All valid records, with quality flags</option></select></label>
+   <div class="note">Exports keep unknown months empty (never zero) and list the data origin, area, dates, profiles and baseline in header lines.</div></div>
+ </div>
+ <details><summary>Limitations of the quality flags</summary><div class="note">
+  <p>All thresholds (near-duplicate distance and time, isolation radius and window, extreme-FRP rule, confidence classes) are engineering choices set in <code>firepulse/config.py</code>, not NASA standards. MODIS confidence class limits are the commonly cited 30/80 values and were not re-read in the user guide here.</p>
+  <p>Extreme-high FRP is flagged statistically only; large fires legitimately have high FRP. Isolation near the edge of the downloaded area or period cannot be assessed and is not flagged. Day/night versus clock-time is an approximate consistency check.</p>
+  <p>FIRMS gives no unique record identifier, so duplicates are judged from source, location, date, time and platform. A suspected duplicate may be a genuine repeat observation.</p></div></details>
+</section>
+<footer class="sensor" id="attribution" style="border-top:1px solid var(--bd);padding-top:10px;font-size:.78rem;color:var(--mut)"><p><b>Data attribution.</b> We acknowledge the use of data and/or imagery from NASA&#x27;s Fire Information for Resource Management System (FIRMS) (https://earthdata.nasa.gov/firms), part of NASA&#x27;s Land, Atmosphere Near real-time Capability for Earth observations (LANCE) (https://earthdata.nasa.gov/lance) and NASA&#x27;s Earth Science Data and Information System (ESDIS).</p><p><b>Disclaimer.</b> FIRMS is operated by the ESDIS project. The information presented through LANCE, GIBS, Worldview, and FIRMS are provided “as is” and users bear all responsibility and liability for their use of data. Full disclaimer: <a href="https://www.earthdata.nasa.gov/data/projects/lance/disclaimer" rel="noopener">full disclaimer</a></p><p>FirePulse is an independent project. NASA does not endorse any non-U.S. Government entity and is not responsible for information contained on non-U.S. Government websites. Users must comply with the data-use parameters of the respective website.</p></footer>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const $=id=>document.getElementById(id), MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const OBS=["OBSERVED_WITH_DETECTIONS","OBSERVED_ZERO_DETECTIONS"];
+const STX={MISSING_DATA:"no data: sensor not in the record",INSUFFICIENT_EVIDENCE:"no rows and no coverage evidence, so zero cannot be claimed",INCOMPLETE_PERIOD:"coverage evidence for part of the month only",OBSERVED_ZERO_DETECTIONS:"observed, zero detections",OBSERVED_WITH_DETECTIONS:"observed with detections"};
+const PCOL={TERRA:"#d95f02",AQUA:"#e6ab02",SNPP:"#7570b3",NOAA20:"#1b9e77",NOAA21:"#e7298a",UNKNOWN:"#666"};
+let META,CELLS,REC,map,layer=null,ptLayer=null,inAOI,chart,S=[],API=false,SEL=null,AREA=null,approxRing=null,pointMode=false,selMonth=null,lastPts=null,reqId=0;
+const median=a=>{const s=[...a].sort((x,y)=>x-y),n=s.length;return n?(n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2):NaN};
+const fmt=v=>v==null||isNaN(v)?"n/a":(Math.abs(v)>=100?Math.round(v):v.toFixed(1));
+function pip(p,r){let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const[xi,yi]=r[i],[xj,yj]=r[j];if(((yi>p[1])!=(yj>p[1]))&&(p[0]<(xj-xi)*(p[1]-yi)/(yj-yi)+xi))c=!c}return c}
+const ratioFor=cal=>{const r=META.ratios.by_month[cal];return r&&r.med>0?r:META.ratios.global};
+function harm(i,mod,vii){const r=ratioFor(+META.months[i].slice(5));
+ const useV=vii!=null&&(mod==null||(META.splice_idx!=null&&i>=META.splice_idx));
+ if(useV)return{h:vii/r.med,lo:r.q75>0?vii/r.q75:null,hi:r.q25>0?vii/r.q25:null,src:"VIIRS"};
+ return mod==null?{h:null,lo:null,hi:null,src:""}:{h:mod,lo:mod,hi:mod,src:"MODIS"}}
+function robustZ(hist,x){if(x==null||hist.length<META.min_baseline)return null;const m=median(hist),mad=median(hist.map(v=>Math.abs(v-m)));return mad===0?null:0.6745*(x-m)/mad}
+const pct=(hist,x)=>x==null||hist.length<META.min_baseline?null:100*hist.filter(v=>v<=x).length/hist.length;
+const bandOf=z=>z==null?"insufficient data":z>=2?"much above normal":z>=1?"above normal":z<=-2?"much below normal":z<=-1?"below normal":"normal";
+function statusAt(k,i){if(META.status&&META.status[k])return META.status[k][i];const[a,b]=META.avail[k];return i>=a&&i<=b?"OBSERVED_WITH_DETECTIONS":"MISSING_DATA"}
+/* ---- cell mode: whole region (exact) or APPROXIMATE area (cell centres) when the exact API is not running */
+function buildCells(){
+ const N=META.months.length,mod=Array(N).fill(null),vii=Array(N).fill(null);
+ for(let i=0;i<N;i++){if(OBS.includes(statusAt("modis",i)))mod[i]=0;if(OBS.includes(statusAt("viirs",i)))vii[i]=0}
+ for(const[c,i,a,b]of REC){if(!inAOI[c])continue;if(mod[i]!==null)mod[i]+=a;if(vii[i]!==null)vii[i]+=b}
+ S=META.months.map((m,i)=>{const o={m,i,y:+m.slice(0,4),cal:+m.slice(5),mod:mod[i],vii:vii[i],ms:statusAt("modis",i),vs:statusAt("viirs",i),...harm(i,mod[i],vii[i])};
+  o.comb=mod[i]==null&&vii[i]==null?null:(mod[i]||0)+(vii[i]||0);o.st=o.src==="MODIS"?o.ms:o.src==="VIIRS"?o.vs:"INSUFFICIENT_EVIDENCE";return o});
+ for(const s of S){const base=S.filter(o=>o.cal===s.cal&&o.y!==s.y&&o.h!=null).map(o=>o.h);s.bn=base.length;s.z=robustZ(base,s.h);s.band=bandOf(s.z)}}
+function fromArea(){S=AREA.months.map(r=>({m:r.month,y:r.year,cal:r.calendar_month,mod:r.modis,vii:r.viirs,comb:r.raw_combined,h:r.harmonized,lo:r.h_lo,hi:r.h_hi,src:r.source_used,
+ z:r.z,band:r.band,bn:r.baseline_n,ms:r.modis_status,vs:r.viirs_status,st:r.data_status,n:r.n_observations,plat:{TERRA:r.terra,AQUA:r.aqua,SNPP:r.snpp,NOAA20:r.noaa20,NOAA21:r.noaa21,UNKNOWN:r.unknown}}))}
+/* ---- calendar */
+const VIR=["#440154","#3b528b","#21908d","#5dc863","#fde725"],DIV=["#2166ac","#f7f7f7","#b2182b"];
+function hex(h){return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16))}
+function ramp(st,t){t=Math.max(0,Math.min(1,t));const k=t*(st.length-1),i=Math.min(Math.floor(k),st.length-2),f=k-i,a=hex(st[i]),b=hex(st[i+1]);return a.map((v,j)=>Math.round(v+(b[j]-v)*f))}
+const css=c=>`rgb(${c})`,dark=c=>(c[0]*.299+c[1]*.587+c[2]*.114)<140;
+function range(){return[+$("y0").value,+$("y1").value]}
+const val=(s,mode)=>mode==="h"?s.h:mode==="mod"?s.mod:mode==="vii"?s.vii:mode==="comb"?s.comb:s.z;
+function whyNull(s,mode){const st=mode==="mod"?s.ms:mode==="vii"?s.vs:mode==="comb"?(s.ms===s.vs?s.ms:(OBS.includes(s.ms)?s.vs:s.ms)):mode==="z"&&s.h!=null?"NOT_COMPUTABLE":s.st;
+ if(st==="NOT_COMPUTABLE")return["·",`${s.m}: index ${fmt(s.h)}; anomaly not computable (baseline ${s.bn} years, needs ${META.min_baseline}+ with spread)`];
+ return[st==="MISSING_DATA"?"–":"?",`${s.m}: ${STX[st]||st}`]}
+const unit=mode=>mode==="z"?"robust z":mode==="h"?"MODIS-equivalent index":"detections";
+function renderCal(){
+ const[y0,y1]=range(),mode=$("mode").value,rows=S.filter(s=>s.y>=y0&&s.y<=y1);
+ const mx=Math.max(1,...rows.map(s=>mode==="z"?0:(val(s,mode)||0)));
+ let h="<table><tr><th scope='col'>Year</th>"+MN.map(m=>`<th scope='col'>${m}</th>`).join("")+`<th scope='col' class='tot'>${mode==="z"?"|z|&ge;2":"Total"}</th></tr>`;
+ for(let y=y0;y<=y1;y++){h+=`<tr><th scope='row'>${y}</th>`;let tot=0,cnt=0,hi=0;
+  for(let m=1;m<=12;m++){const s=S.find(o=>o.y===y&&o.cal===m);
+   if(!s){h+=`<td class="hatch" title="${y}-${String(m).padStart(2,"0")}: outside the processed record">–</td>`;continue}
+   const v=val(s,mode),dat=`data-m="${s.m}"`;
+   if(v==null){const[t,tt]=whyNull(s,mode);h+=`<td class="cell hatch" ${dat} title="${tt}">${t}</td>`;continue}
+   cnt++;if(mode==="z"){if(Math.abs(v)>=2)hi++}else tot+=v;
+   const c=mode==="z"?ramp(DIV,(v+3)/6):ramp(VIR,v/mx),part=s.st==="INCOMPLETE_PERIOD"?"*":"";
+   const tt=`${s.m}: ${mode==="z"?"z="+v.toFixed(2)+" ("+s.band+")":fmt(v)+" "+unit(mode)}; MODIS ${fmt(s.mod)} · VIIRS ${fmt(s.vii)} · index ${fmt(s.h)} (${s.src||"none"}); status: ${STX[s.st]||s.st}`;
+   h+=`<td class="cell${selMonth===s.m?" sel":""}" ${dat} title="${tt}" style="background:${css(c)};color:${dark(c)?"#fff":"#111"}">${mode==="z"?v.toFixed(1):fmt(v)}${part}</td>`}
+  h+=`<td class="tot" title="${cnt} of 12 months have a value; the total covers only those months">${mode==="z"?hi:fmt(tot)}${cnt<12?"<sup>"+cnt+"/12</sup>":""}</td></tr>`}
+ $("cal").innerHTML=h+"</table>";
+ $("cal").querySelectorAll("td.cell").forEach(td=>td.onclick=()=>pickMonth(td.dataset.m));
+ const st=mode==="z"?DIV:VIR,g=`linear-gradient(90deg,${st.join(",")})`;
+ $("legend").innerHTML=(mode==="z"?`<span>below normal</span><div class="ramp" style="background:${g}"></div><span>above normal</span>`:`<span>low</span><div class="ramp" style="background:${g}"></div><span>high (max ${fmt(mx)} ${unit(mode)})</span>`)+
+  `<span class="note">&nbsp;– no data &nbsp;? zero not claimable (no coverage evidence) &nbsp;· not computable &nbsp;* partial month</span>`}
+/* ---- chart */
+function renderChart(){
+ const[y0,y1]=range(),rows=S.filter(s=>s.y>=y0&&s.y<=y1),L=rows.map(s=>s.m);
+ const ds=[{label:"MODIS raw",data:rows.map(s=>s.mod),borderColor:"#d95f02",borderWidth:1.2,pointRadius:0},
+  {label:"VIIRS raw",data:rows.map(s=>s.vii),borderColor:"#7570b3",borderWidth:1.2,pointRadius:0},
+  {label:"band low",data:rows.map(s=>s.lo),borderWidth:0,pointRadius:0,fill:false},
+  {label:"Harmonized uncertainty",data:rows.map(s=>s.hi),borderWidth:0,pointRadius:0,backgroundColor:"rgba(27,158,119,.25)",fill:"-1"},
+  {label:"Harmonized (MODIS-equivalent)",data:rows.map(s=>s.h),borderColor:"#1b9e77",borderWidth:2,pointRadius:0},
+  {label:"Raw combined (MODIS+VIIRS)",data:rows.map(s=>s.comb),borderColor:"#666",borderDash:[4,3],borderWidth:1,pointRadius:0,hidden:true}];
+ if(chart)chart.destroy();
+ chart=new Chart($("chart"),{type:"line",data:{labels:L,datasets:ds},options:{responsive:true,maintainAspectRatio:false,animation:false,spanGaps:false,
+  plugins:{legend:{labels:{filter:i=>i.text!=="band low"}}},scales:{x:{ticks:{maxTicksLimit:10}},y:{beginAtZero:true,title:{display:true,text:"hotspot detections / month"}}}}})}
+/* ---- anomaly card (uses the SAME z as the calendar: same calendar month, all other years) */
+function renderAnom(){
+ const y=+$("tY").value,m=+$("tM").value,s=S.find(o=>o.y===y&&o.cal===m);
+ if(!s||s.h==null){$("anom").innerHTML=`<p>No value for this month${s?` (${STX[s.st]||s.st})`:" (outside the selected years or the record)"}.</p>`;return}
+ const base=S.filter(o=>o.cal===m&&o.y!==y&&o.h!=null).map(o=>o.h),med=median(base),p=pct(base,s.h);
+ $("anom").innerHTML=`<p class="big">${MN[m-1]} ${y}: ${bandOf(s.z)}</p><p>Index <b>${fmt(s.h)}</b> vs median <b>${fmt(med)}</b> for the same month in ${base.length} other years`+
+  (s.z==null?`. <i>Not enough history (needs ${META.min_baseline}+ years with spread), so no score is shown.</i>`:`; robust z = ${s.z.toFixed(2)}, higher than ${p.toFixed(0)}% of other years.`)+
+  `</p><p class="note">Source for this month: ${s.src}. Anomaly means unusual versus history, not necessarily dangerous or a long-term trend.</p>`}
+/* ---- summaries */
+function renderPeaks(){
+ const[y0,y1]=range(),rows=S.filter(s=>s.y>=y0&&s.y<=y1&&s.h!=null);
+ const top=[...rows].sort((a,b)=>b.h-a.h).slice(0,3).map(s=>`${s.m} (${fmt(s.h)})`).join(", ");
+ const yr={},yn={};rows.forEach(s=>{yr[s.y]=(yr[s.y]||0)+s.h;yn[s.y]=(yn[s.y]||0)+1});
+ const ty=Object.entries(yr).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>`${e[0]} (${fmt(e[1])}${yn[e[0]]<12?", "+yn[e[0]]+"/12 months":""})`).join(", ");
+ $("peaks").innerHTML=`Highest observed hotspot activity (months): ${top||"n/a"}<br>Highest observed hotspot activity (years): ${ty||"n/a"}`}
+function renderSummary(){
+ if(!AREA){$("summary").innerHTML=SEL?`<b>Approximate view</b> (cell centres). Run <code>python serve.py</code> for exact counts, totals and limits for this area.`:"Whole processing region. Draw or select an area for an area-specific summary.";return}
+ const m=AREA.summary,f=(x)=>x==null?"n/a":fmt(x);
+ const seas=MN.map((n,i)=>{const v=S.filter(s=>s.cal===i+1&&s.h!=null).map(s=>s.h);return`<th>${n}</th>`}).join(""),
+  seasV=MN.map((n,i)=>{const v=S.filter(s=>s.cal===i+1&&s.h!=null&&s.y>=range()[0]&&s.y<=range()[1]).map(s=>s.h);return`<td>${v.length?fmt(median(v)):"–"}</td>`}).join("");
+ const miss=m.missing_data_periods.map(r=>`${r.sensor} ${r.start}${r.end!==r.start?" to "+r.end:""}: ${STX[r.status]||r.status}`);
+ $("summary").innerHTML=`<p><b>${AREA.selection.description}</b>, ${AREA.selection.area_km2.toLocaleString()} km&sup2;. ${AREA.n_points_in_selection_all_time.toLocaleString()} detections in this area over the whole record.</p>
+ <p>MODIS detections: <b>${f(m.total_modis_detections)}</b> &middot; VIIRS detections: <b>${f(m.total_viirs_detections)}</b> (observed months only). Monthly average index: <b>${f(m.monthly_average_index)}</b>.</p>
+ <p>Highest observed hotspot activity: ${m.highest_observed_hotspot_activity_month?`<b>${m.highest_observed_hotspot_activity_month.month}</b> (${f(m.highest_observed_hotspot_activity_month.index)})`:"n/a"}; year: ${m.highest_observed_hotspot_activity_year?`<b>${m.highest_observed_hotspot_activity_year.year}</b>${m.highest_observed_hotspot_activity_year.complete_year?"":" (incomplete year)"}`:"n/a"}.
+ Lowest: ${m.lowest_month?`<b>${m.lowest_month.month}</b>`:"not reported"} <span class="note">(${m.lowest_month_note})</span></p>
+ <p>Anomalies (|z|&ge;2) in ${m.anomaly_months_assessed} assessable months: ${m.anomaly_count_much_above} high, ${m.anomaly_count_much_below} low.</p>
+ <p>Seasonal pattern (median index by calendar month, selected years):</p><div style="overflow-x:auto"><table class="mini"><tr>${seas}</tr><tr>${seasV}</tr></table></div>
+ <p>Missing-data periods: ${miss.length?"<ul class='lim'>"+miss.map(x=>`<li>${x}</li>`).join("")+"</ul>":"none in the selected range"}</p>
+ <p class="note">Ratio basis: ${AREA.ratio_basis}</p><ul class="lim">${m.limitations.map(x=>`<li>${x}</li>`).join("")}</ul>`}
+function chips(){
+ $("modeChip").className="chip "+(AREA?"ok":SEL?"warn":"");
+ $("modeChip").textContent=AREA?"Exact: detections inside your shape":SEL?"APPROXIMATE: cell centres":"Whole region (exact)";
+ const demo=META.data_origin?META.data_origin==="SYNTHETIC_DEMO":META.demo;
+ $("originChip").className="chip "+(demo?"warn":"ok");$("originChip").textContent=demo?"SYNTHETIC demo data":"NASA FIRMS data";
+ $("aoiText").textContent=AREA?`${AREA.selection.description}, ${AREA.selection.area_km2.toLocaleString()} km2`:SEL?"Custom area (approximate)":"Whole region "+META.bbox.join(", ")}
+function refresh(){renderCal();renderChart();renderAnom();renderPeaks();renderSummary();chips()}
+/* ---- selection */
+const ringOf=ll=>ll.map(p=>[p.lng,p.lat]);
+function drawGeo(g){layer.clearLayers();if(!g)return;const polys=g.type==="Polygon"?[g.coordinates]:g.coordinates;
+ polys.forEach(pc=>L.polygon(pc.map(r=>r.map(([x,y])=>[y,x])),{color:"#b4400f",weight:2}).addTo(layer))}
+function squareRing(lat,lon,km){const dl=km/111.195,dn=km/(111.195*Math.cos(lat*Math.PI/180));return[[lon-dn,lat-dl],[lon+dn,lat-dl],[lon+dn,lat+dl],[lon-dn,lat+dl]]}
+function clearSel(){SEL=null;AREA=null;approxRing=null;selMonth=null;clearPts();layer.clearLayers();$("aoiErr").textContent="";inAOI=CELLS.cells.map(()=>true);buildCells();refresh();loadSensor()}
+async function post(url,body){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw new Error(j.error||"Request failed");return j}
+async function select(payload){
+ SEL=payload;selMonth=null;clearPts();$("aoiErr").textContent="";const id=++reqId;
+ if(API){
+  try{const[y0,y1]=range();const a=await post("/api/area",{...payload,...platBody(),start:`${y0}-01`,end:`${y1}-12`});if(id!==reqId)return;AREA=a;fromArea();$("baseNote").textContent=a.method.baseline+".";drawGeo(a.selection.geojson);adoptSensor(a)}
+  catch(e){if(id!==reqId)return;$("aoiErr").textContent="Could not use this area: "+e.message;SEL=null;AREA=null;layer.clearLayers();inAOI=CELLS.cells.map(()=>true);buildCells()}
+ }else{
+  AREA=null;approxRing=payload.geometry?payload.geometry.coordinates[0]:squareRing(payload.point.lat,payload.point.lon,payload.point.radius_km);
+  if(payload.point)drawGeo({type:"Polygon",coordinates:[[...approxRing,approxRing[0]]]});
+  inAOI=CELLS.cells.map(c=>pip([c[1]+CELLS.grid/2,c[0]+CELLS.grid/2],approxRing));buildCells()}
+ refresh()}
+const polyPayload=ring=>({geometry:{type:"Polygon",coordinates:[[...ring,ring[0]]]}});
+/* ---- month inspection on the map */
+function clearPts(){if(ptLayer)ptLayer.clearLayers();lastPts=null;$("calNote").textContent="Click a month to see its individual detections on the map (needs python serve.py)."}
+async function pickMonth(m){
+ selMonth=m;renderCal();
+ if(!API){$("calNote").textContent="Detections for a month need the local server: run python serve.py.";return}
+ const body0=SEL?{...SEL,month:m}:{geometry:{type:"Polygon",coordinates:[[[META.bbox[0],META.bbox[1]],[META.bbox[2],META.bbox[1]],[META.bbox[2],META.bbox[3]],[META.bbox[0],META.bbox[3]],[META.bbox[0],META.bbox[1]]]]},month:m},body=$("qPts")&&$("qPts").value?{...body0,profile:$("qPts").value}:body0;
+ try{const j=await post("/api/points",body);lastPts=j;ptLayer.clearLayers();
+  j.features.forEach(f=>{const[x,y]=f.geometry.coordinates,p=f.properties;L.circleMarker([y,x],{radius:4,color:PCOL[p.platform]||"#666",weight:1,fillOpacity:.7})
+   .bindPopup(`${p.date} &middot; ${p.platform}<br>FRP ${p.frp==null?"n/a":p.frp} MW &middot; ${p.daynight||"?"} &middot; conf ${p.confidence}${p.conf_class?" ("+p.conf_class+")":""}${p.flags&&p.flags.length?"<br>flags: "+esc(p.flags.join(", ")):""}${p.in_active_profile===false?"<br><i>not in the active profile</i>":""}`).addTo(ptLayer)});
+  $("calNote").textContent=`${m}: ${j.meta.returned.toLocaleString()} of ${j.meta.total_in_selection.toLocaleString()} detections shown on the map. ${j.meta.note} Colours: Terra orange, Aqua yellow, S-NPP purple, NOAA-20 green, NOAA-21 pink.`}
+ catch(e){$("calNote").textContent="Could not load detections: "+e.message}}
+/* ---- downloads */
+function series2csv(){
+ const hdr=["month","modis_raw","viirs_raw","raw_combined","harmonized_index","uncertainty_low","uncertainty_high","source_used","robust_z","band","baseline_years","modis_status","viirs_status","data_status","data_origin"];
+ const rows=[hdr],[y0,y1]=range(),origin=META.data_origin||(META.demo?"SYNTHETIC_DEMO":"NASA_FIRMS");
+ S.filter(s=>s.y>=y0&&s.y<=y1).forEach(s=>rows.push([s.m,s.mod,s.vii,s.comb,s.h==null?"":s.h.toFixed(2),s.lo==null?"":s.lo.toFixed(2),s.hi==null?"":s.hi.toFixed(2),s.src,s.z==null?"":s.z.toFixed(2),s.band,s.bn,s.ms,s.vs,s.st,origin]));
+ const meta=[`# FirePulse monthly series. Area: ${$("aoiText").textContent}. Mode: ${$("modeChip").textContent}. Data: ${origin}. Years ${y0}-${y1}. Generated ${new Date().toISOString()}`,
+  "# Empty cell = unknown (not zero). Index = MODIS-equivalent scale; ratio basis: "+(AREA?AREA.ratio_basis:META.ratio_basis||"region")];
+ return meta.concat(rows.map(r=>r.map(v=>v==null?"":v).join(","))).join("\n")}
+function dl(name,data,type){const a=document.createElement("a");a.href=type?URL.createObjectURL(new Blob([data],{type})):data;a.download=name;a.click()}
+function geojsonOut(){const g=AREA?AREA.selection.geojson:SEL&&SEL.geometry?SEL.geometry:{type:"Polygon",coordinates:[[[META.bbox[0],META.bbox[1]],[META.bbox[2],META.bbox[1]],[META.bbox[2],META.bbox[3]],[META.bbox[0],META.bbox[3]],[META.bbox[0],META.bbox[1]]]]};
+ return JSON.stringify({type:"Feature",properties:{description:$("aoiText").textContent,area_km2:AREA?AREA.selection.area_km2:null,data_origin:META.data_origin||(META.demo?"SYNTHETIC_DEMO":"NASA_FIRMS"),saved:new Date().toISOString(),note:"Selection geometry only; re-load it with 'Load GeoJSON'."},geometry:g},null,1)}
+/* ---- Sensor Intelligence (Stage 5). Data comes from the SAME /api/area response (sensor_intelligence); nothing is recomputed here. */
+const FAMP={modis:["TERRA","AQUA"],viirs:["SNPP","NOAA20","NOAA21"]},PLAB={TERRA:"MODIS Terra",AQUA:"MODIS Aqua",SNPP:"VIIRS S-NPP",NOAA20:"VIIRS NOAA-20",NOAA21:"VIIRS NOAA-21",UNKNOWN:"Unidentified platform"};
+let SC=null,scReq=0,scCharts={},scTimer=null,scYear=null;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),NA='<span class="na">n/a</span>';
+const n1=v=>v==null?NA:Math.abs(v)>=100?Math.round(v).toLocaleString():v.toFixed(1),n2=v=>v==null?NA:v.toFixed(2),p1=v=>v==null?NA:v.toFixed(1)+"%";
+const cssv=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim(),EVL=e=>({INSUFFICIENT_EVIDENCE:"insufficient evidence",EXPLORATORY:"exploratory",ADEQUATE:"adequate (descriptive)"}[e]||e);
+function platSel(){const on=[...document.querySelectorAll(".pl")].filter(c=>c.checked).map(c=>c.value),m=on.filter(p=>FAMP.modis.includes(p)),v=on.filter(p=>FAMP.viirs.includes(p));
+ if(!m.length||!v.length)return{error:"Tick at least one MODIS and one VIIRS platform."};return{value:m.length===2&&v.length===3?null:{modis:m,viirs:v}}}
+const platBody=()=>{const p=platSel(),b={baseline:$("baseline").value};return p.value?{platforms:p.value,...b}:b};
+const regionPoly=()=>({geometry:{type:"Polygon",coordinates:[[[META.bbox[0],META.bbox[1]],[META.bbox[2],META.bbox[1]],[META.bbox[2],META.bbox[3]],[META.bbox[0],META.bbox[3]],[META.bbox[0],META.bbox[1]]]]}});
+function adoptSensor(a){loadQuality();if(platSel().error)return;++scReq;SC=a.sensor_intelligence;$("scErr").textContent="";renderSensor()}
+async function loadSensor(){
+ loadQuality();const ps=platSel();$("scErr").textContent="";if(ps.error){$("scErr").textContent=ps.error;return}
+ if(!API){SC=null;renderSensor();return}
+ const id=++scReq,[y0,y1]=range();$("scState").textContent=SC?"Updating...":"Loading...";
+ try{const j=await post("/api/area",{...(SEL||regionPoly()),...platBody(),start:`${y0}-01`,end:`${y1}-12`});if(id!==scReq)return;SC=j.sensor_intelligence;renderSensor()}
+ catch(e){if(id!==scReq)return;$("scErr").textContent="Sensor Intelligence could not be computed: "+e.message;$("scState").textContent=""}}
+function renderSensor(){
+ const body=$("scBody");
+ if(!API){body.style.display="none";chipsSC();$("scState").textContent="Sensor Intelligence is unavailable in this view: it needs platform-level detections from the local server. Run python serve.py (see README). The static site only holds precomputed cell counts.";return}
+ if(!SC){body.style.display="none";chipsSC();return}
+ body.style.display="block";$("scState").textContent="";chipsSC();
+ $("scNotes").innerHTML="<b>Notes and limits for this view</b><ul>"+SC.notes.map(n=>`<li>${esc(n)}</li>`).join("")+"</ul>";
+ chartA();chartB();chartC();chartD();renderValidation();renderSens();renderTimeline()}
+function chipsSC(){const o=$("scOrigin"),c=$("scCal"),e=$("scEvid"),s=$("scSel");
+ if(!SC){[o,c,e,s].forEach(x=>{x.textContent="";x.className="chip"});$("scPeriod").textContent="";return}
+ const syn=SC.provenance.is_synthetic;o.className="chip "+(syn?"bad":"ok");o.textContent=syn?"SYNTHETIC demo data: illustrative only":"NASA FIRMS data";o.title=SC.provenance.statement;
+ c.className="chip "+(SC.calibration.source==="AREA"?"ok":"warn");c.textContent="Index calibration: "+SC.calibration.source;c.title=SC.calibration.explanation;
+ const g=SC.calendar_ratio.selected_range.global;e.className="chip "+(g.evidence==="ADEQUATE"?"ok":"warn");e.textContent="Ratio evidence (selected dates): "+EVL(g.evidence);
+ s.className="chip";s.textContent=SC.selection.description;const ov=SC.overlap;
+ $("scPeriod").textContent=`Dates ${SC.range.start} to ${SC.range.end} (record ${SC.data_period.first_month} to ${SC.data_period.last_month}). Overlap in these dates: ${ov.in_range.first_month?ov.in_range.first_month+" to "+ov.in_range.last_month:"none"} (${ov.in_range.usable_months} usable months; whole record ${ov.whole_record.usable_months}). Calibration: ${SC.calibration.explanation}`}
+/* chart plumbing */
+const BANDS={id:"fpbands",beforeDatasetsDraw(c,_a,o){const m=o&&o.marks;if(!m)return;const x=c.scales.x,a=c.chartArea,ctx=c.ctx,n=c.data.labels.length,w=n>1?(x.getPixelForValue(n-1)-x.getPixelForValue(0))/(n-1):a.right-a.left;
+ for(const b of m.bands||[]){const x0=Math.max(a.left,x.getPixelForValue(b.from)-w/2),x1=Math.min(a.right,x.getPixelForValue(b.to)+w/2);ctx.save();ctx.fillStyle=b.color;ctx.fillRect(x0,a.top,Math.max(1,x1-x0),a.bottom-a.top);ctx.restore()}
+ for(const v of m.lines||[]){const px=x.getPixelForValue(v.at);ctx.save();ctx.strokeStyle=v.color;ctx.setLineDash([2,3]);ctx.beginPath();ctx.moveTo(px,a.top);ctx.lineTo(px,a.bottom);ctx.stroke();ctx.restore()}}};
+function mk(id,cfg){if(scCharts[id])scCharts[id].destroy();scCharts[id]=new Chart($(id),cfg);return scCharts[id]}
+const ax=(t,x)=>({title:{display:true,text:t,color:cssv("--mut")},ticks:{color:cssv("--mut")},grid:{color:cssv("--bd")},...(x||{})});
+const runBands=(M,pred,color)=>{const out=[];let s=null;M.forEach((r,i)=>{if(pred(r)){if(s===null)s=i}else if(s!==null){out.push({from:s,to:i-1,color});s=null}});if(s!==null)out.push({from:s,to:M.length-1,color});return out};
+const GAP=r=>["INCOMPLETE_PERIOD","INSUFFICIENT_EVIDENCE"].some(s=>r.modis_status===s||r.viirs_status===s);
+function marks(M){const L=M.map(r=>r.month);return{bands:[...runBands(M,r=>r.both_observed,"rgba(27,158,119,.10)"),...runBands(M,GAP,"rgba(120,120,120,.28)")],
+ lines:SC.composition_changes.filter(c=>L.includes(c.first_available_month)).map(c=>({at:L.indexOf(c.first_available_month),color:"#e7298a"}))}}
+const lg=()=>({labels:{color:cssv("--mut"),filter:i=>i.text!=="band low"}});
+const tbl=(h,rows,cls)=>`<table class="${cls||""}"><tr>${h.map(x=>`<th class="${x[1]||""}" scope="col">${x[0]}</th>`).join("")}</tr>${rows.join("")}</table>`;
+/* A */
+function chartA(){const M=SC.monthly,L=M.map(r=>r.month);
+ mk("scA",{type:"line",plugins:[BANDS],data:{labels:L,datasets:[
+  {label:"MODIS detections",data:M.map(r=>r.modis),borderColor:"#d95f02",borderWidth:1.3,pointRadius:0,yAxisID:"y"},
+  {label:"band low",data:M.map(r=>r.h_lo),borderWidth:0,pointRadius:0,yAxisID:"y",fill:false},
+  {label:"Harmonised uncertainty (ratio IQR)",data:M.map(r=>r.h_hi),borderWidth:0,pointRadius:0,backgroundColor:"rgba(27,158,119,.22)",fill:"-1",yAxisID:"y"},
+  {label:"Harmonised index (MODIS-equivalent, not a fire count)",data:M.map(r=>r.harmonized),borderColor:"#1b9e77",borderWidth:2.2,pointRadius:0,yAxisID:"y"},
+  {label:"VIIRS detections (right axis)",data:M.map(r=>r.viirs),borderColor:"#7570b3",borderWidth:1.3,pointRadius:0,yAxisID:"y2"},
+  {label:"Raw combined MODIS+VIIRS (right axis)",data:M.map(r=>r.raw_combined),borderColor:"#666",borderDash:[4,3],borderWidth:1,pointRadius:0,hidden:true,yAxisID:"y2"}]},
+  options:{responsive:true,maintainAspectRatio:false,animation:false,spanGaps:false,interaction:{mode:"index",intersect:false},
+   plugins:{legend:lg(),fpbands:{marks:marks(M)},tooltip:{callbacks:{afterBody:it=>{const r=M[it[0].dataIndex];return[`Data status: ${STX[r.data_status]||r.data_status}`,`Index source: ${r.source_used||"none"}`,`Ratio status: ${r.ratio_status}`+(r.ratio!=null?` (${r.ratio.toFixed(2)})`:""),"Counts are satellite detections, not fires."]}}}},
+   scales:{x:ax("Month",{ticks:{maxTicksLimit:12,color:cssv("--mut")}}),y:ax("MODIS detections / harmonised index (per month)",{beginAtZero:true,position:"left"}),
+    y2:ax("VIIRS / raw combined detections (per month)",{beginAtZero:true,position:"right",grid:{drawOnChartArea:false}})}}});
+ const miss=SC.missing_periods.map(r=>`${r.sensor} ${r.start}${r.end!==r.start?" to "+r.end:""}: ${STX[r.status]||r.status}`),gap=M.filter(r=>r.selection_gap.length).length;
+ $("scMiss").innerHTML="<b>Missing or incomplete periods in these dates:</b> "+(miss.length?"<ul class='lim'>"+miss.map(x=>`<li>${esc(x)}</li>`).join("")+"</ul>":"none")+(gap?`<div>${gap} month(s) have no value for the ticked platform subset because a ticked platform has no data then (unavailable, not zero).</div>`:"")}
+/* B */
+function chartB(){const R=SC.calendar_ratio.selected_range.months,F=SC.calendar_ratio.whole_record.months;
+ mk("scB",{type:"line",data:{labels:MN,datasets:[
+  {label:"band low",data:R.map(r=>r.q25),borderWidth:0,pointRadius:0,fill:false},
+  {label:"25th to 75th percentile (selected dates)",data:R.map(r=>r.q75),borderWidth:0,pointRadius:0,backgroundColor:"rgba(117,112,179,.25)",fill:"-1"},
+  {label:"Median ratio (selected dates)",data:R.map(r=>r.median),borderColor:"#7570b3",borderWidth:2,pointRadius:4,pointBackgroundColor:"#7570b3"},
+  {label:"Median ratio (whole record)",data:F.map(r=>r.median),borderColor:"#888",borderDash:[5,4],borderWidth:1.5,pointRadius:2}]},
+  options:{responsive:true,maintainAspectRatio:false,animation:false,spanGaps:false,interaction:{mode:"index",intersect:false},
+   plugins:{legend:lg(),tooltip:{callbacks:{afterBody:it=>{const r=R[it[0].dataIndex];return[`Usable overlap observations: ${r.n_observations} (years: ${r.n_years})`,`Excluded: ${r.n_zero_denominator} zero-MODIS, ${r.n_low_denominator} low-MODIS months`,`Evidence: ${EVL(r.evidence)}`,"Observed detection ratio, not a correction factor."]}}}},
+   scales:{x:ax("Calendar month"),y:ax("VIIRS / MODIS detections (ratio)",{beginAtZero:true})}}});
+ $("scBt").innerHTML=tbl([["Month","l"],["Median"],["25th"],["75th"],["Obs."],["Years"],["Zero MODIS"],["Low MODIS"],["Evidence","l"]],R.map(r=>`<tr><td class="l">${MN[r.calendar_month-1]}</td><td>${n2(r.median)}</td><td>${n2(r.q25)}</td><td>${n2(r.q75)}</td><td>${r.n_observations}</td><td>${r.n_years}</td><td>${r.n_zero_denominator}</td><td>${r.n_low_denominator}</td><td class="l">${EVL(r.evidence)}</td></tr>`))+
+ `<div class="note">Window: ${SC.calendar_ratio.selected_range.window.start||"n/a"} to ${SC.calendar_ratio.selected_range.window.end||"n/a"}. Obs. = usable overlap observations; ratios need both sensors observed, MODIS &ge; ${SC.thresholds.min_modis_count_for_ratio}, and at least ${SC.thresholds.min_years_per_calendar_month} years. ${esc(SC.calendar_ratio.caution)}</div>`}
+/* C */
+function chartC(){const M=SC.monthly,L=M.map(r=>r.month),an={};SC.ratio_over_time.annual.forEach(a=>an[a.year]=a.median_ratio);
+ mk("scC",{type:"line",plugins:[BANDS],data:{labels:L,datasets:[
+  {label:"Monthly ratio (usable months)",data:M.map(r=>r.ratio),borderColor:"#7570b3",backgroundColor:"#7570b3",borderWidth:1,pointRadius:2},
+  {label:"Unstable ratio (MODIS 1-4 detections, not used)",data:M.map(r=>r.ratio_unstable),showLine:false,borderColor:"#d95f02",backgroundColor:"transparent",pointRadius:4,pointStyle:"circle"},
+  {label:"Annual median (6+ usable months)",data:M.map(r=>an[r.year]==null?null:an[r.year]),borderColor:"#1b9e77",borderWidth:2,pointRadius:0,stepped:true}]},
+  options:{responsive:true,maintainAspectRatio:false,animation:false,spanGaps:false,interaction:{mode:"index",intersect:false},
+   plugins:{legend:lg(),fpbands:{marks:marks(M)},tooltip:{callbacks:{afterBody:it=>{const r=M[it[0].dataIndex];return[`MODIS ${n1p(r.modis)} · VIIRS ${n1p(r.viirs)} detections`,`Ratio status: ${r.ratio_status}`,"Green band = overlap; grey = incomplete/unverifiable."]}}}},
+   scales:{x:ax("Month",{ticks:{maxTicksLimit:10,color:cssv("--mut")}}),y:ax("VIIRS / MODIS detections (ratio)",{beginAtZero:true})}}});
+ const t=SC.ratio_over_time.trend,u=M.filter(r=>r.ratio_status==="LOW_DENOMINATOR").length,z=M.filter(r=>r.ratio_status==="ZERO_DENOMINATOR").length;
+ $("scCt").innerHTML=`Overlap in these dates: <b>${SC.ratio_over_time.overlap_start||"none"}${SC.ratio_over_time.overlap_start?" to "+SC.ratio_over_time.overlap_end:""}</b> (green band). ${u} unstable month(s) (hollow) and ${z} zero-MODIS month(s) have no usable ratio. `+
+  (t.spearman_rho==null?`Trend: not reported (${t.n_years} years with an annual value; needs ${SC.thresholds.min_years_for_trend}+ and some variation).`:`Exploratory rank trend of the annual ratio (relative to its calendar-month median): rho = ${t.spearman_rho.toFixed(2)} over ${t.n_years} years. ${esc(t.note)}`)+(SC.composition_changes.length?" Dotted pink lines: a platform first appears, so the platform mix changes.":"")}
+const n1p=v=>v==null?"n/a":(+v).toLocaleString();
+/* D */
+function chartD(){const by=SC.contribution.by_year,pct=$("scDmode").value==="p",ov=SC.contribution.overall.platforms,use=ov.filter(p=>p.status!=="UNAVAILABLE");
+ mk("scD",{type:"bar",data:{labels:by.map(y=>y.year),datasets:use.map(p=>({label:p.label,data:by.map(y=>(pct?y.percent:y.detections)[p.platform]),backgroundColor:PCOL[p.platform]||"#666"}))},
+  options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:"index",intersect:false},
+   plugins:{legend:{labels:{color:cssv("--mut")}},tooltip:{callbacks:{afterBody:()=>["A platform missing from a year has no data then (unavailable, not zero).","Share of detections is not share of fires."]}}},
+   scales:{x:ax("Year",{stacked:true}),y:ax(pct?"share of observed detections (%)":"detections per year",{stacked:true,beginAtZero:true,...(pct?{max:100}:{})})}}});
+ const row=p=>`<tr><td class="l">${p.label}${p.selected?"":' <span class="note">(not ticked)</span>'}</td><td class="l">${p.status==="UNAVAILABLE"?"unavailable":p.status==="PARTIAL"?"partly available":"available"}</td><td>${p.months_available}/${p.months_in_range}</td><td>${n1p(p.detections)==="n/a"?NA:n1p(p.detections)}</td><td>${p1(p.percent)}</td></tr>`,
+  heads=[["Platform","l"],["Status","l"],["Months with data"],["Detections"],["Share"]],ovp=SC.contribution.overlap_period.platforms,rec=SC.contribution.platform_record;
+ $("scDt").innerHTML=`<p class="note">Selected dates ${SC.contribution.range.start} to ${SC.contribution.range.end}. Total ${n1p(SC.contribution.overall.total_detections)} detections.</p>`+tbl(heads,ov.map(row))+
+  `<p class="note">Only months where both sensors were observed (overlap): total ${n1p(SC.contribution.overlap_period.total_detections)} detections.</p>`+tbl(heads,ovp.map(row))+
+  `<p class="note">First/last month with a detection in the processed record (inferred from the data, not an official mission date): `+Object.entries(rec).map(([k,v])=>`${v.label} ${v.first_month?v.first_month+" to "+v.last_month:"no data"}`).join("; ")+`. ${esc(SC.contribution.caution)}</p>`}
+/* E */
+const VST={COMPLETE_YEAR:"12 valid months",PARTIAL_YEAR:"partial year",INSUFFICIENT_VALID_MONTHS:"too few valid months",NO_CALIBRATION:"no calibration"};
+function renderValidation(){const V=SC.validation,s=V.summary,ys=V.years;
+ $("scEtxt").innerHTML=`<b>Method:</b> ${esc(s.method_note)} Each held-out year is excluded from the ratio used to predict it. Valid month = both sensors observed and MODIS &ge; ${SC.thresholds.min_modis_count_for_ratio}; metrics need ${s.min_valid_months_per_year}+ valid months. Evidence: <b>${EVL(s.evidence)}</b> (${s.years_with_metrics} of ${s.years_listed} years have metrics`+(s.held_out_years_outside_range?`; ${s.held_out_years_outside_range} overlap years lie outside the selected dates`:"")+`).<br>`+
+  (s.years_with_metrics?`Median sMAPE ${p1(s.median_smape_pct)} · median absolute bias ${p1(s.median_abs_bias_pct)} · pooled correlation ${n2(s.pooled_correlation)} (mostly the seasonal cycle) · climatology baseline sMAPE ${p1(s.median_climatology_smape_pct)}.`:"No year has enough valid months for metrics: nothing is reported rather than a misleading number.");
+ const sel=$("scEy");sel.innerHTML=ys.map(y=>`<option value="${y.year}">${y.year}${y.smape_pct==null?" (no metrics)":""}</option>`).join("");
+ if(!ys.some(y=>y.year===scYear)){const g=ys.filter(y=>y.smape_pct!=null);scYear=(g.length?g[g.length-1]:ys[ys.length-1]||{}).year}
+ if(scYear!=null)sel.value=scYear;chartE();
+ if(scCharts.scE2){scCharts.scE2.destroy();delete scCharts.scE2}
+ if(ys.length)mk("scE2",{type:"bar",data:{labels:ys.map(y=>y.year),datasets:[{label:"Harmonisation (VIIRS / ratio)",data:ys.map(y=>y.smape_pct),backgroundColor:"#1b9e77"},{label:"Baseline: same-month MODIS median of other years",data:ys.map(y=>y.climatology_smape_pct),backgroundColor:"#999"}]},
+  options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:cssv("--mut")}},tooltip:{callbacks:{afterBody:it=>{const y=ys[it[0].dataIndex];return[`Valid months: ${y.n_valid_months}`,y.reason||"Lower sMAPE is better (0-200%)."]}}}},scales:{x:ax("Held-out year"),y:ax("sMAPE (%, lower is better)",{beginAtZero:true})}}});
+ $("scEt").innerHTML=ys.length?tbl([["Held-out year","l"],["Status","l"],["Valid months"],["Correlation"],["sMAPE"],["Abs. bias (detections)"],["Abs. bias %"],["Signed bias %"],["Baseline sMAPE"]],ys.map(y=>`<tr class="pick${y.year===scYear?" sel":""}" data-y="${y.year}" title="${esc(y.reason||y.correlation_note||"")}"><td class="l">${y.year}</td><td class="l">${VST[y.status]||y.status}</td><td>${y.n_valid_months}</td><td>${n2(y.correlation)}</td><td>${p1(y.smape_pct)}</td><td>${n1(y.abs_bias)}</td><td>${p1(y.abs_bias_pct)}</td><td>${y.bias_pct==null?NA:(y.bias_pct>0?"+":"")+y.bias_pct.toFixed(1)+"%"}</td><td>${p1(y.climatology_smape_pct)}</td></tr>`))+
+  `<div class="note">Click a row to chart that year. Correlation is shown only when defined (variation in both series) and is dominated by the seasonal cycle. Bias is predicted minus actual MODIS detections (positive = over-prediction).</div>`:"<p class='note'>No overlap year is available for validation in the selected dates.</p>";
+ $("scEt").querySelectorAll("tr.pick").forEach(tr=>tr.onclick=()=>{scYear=+tr.dataset.y;$("scEy").value=scYear;chartE();$("scEt").querySelectorAll("tr.pick").forEach(r=>r.classList.toggle("sel",r===tr))})}
+function chartE(){const y=SC.validation.years.find(v=>v.year===scYear);if(scCharts.scE){scCharts.scE.destroy();delete scCharts.scE}if(!y)return;
+ const by=Array(12).fill(null),A=Array(12).fill(null),P=Array(12).fill(null);y.months.forEach(m=>{by[m.calendar_month-1]=m;A[m.calendar_month-1]=m.actual;P[m.calendar_month-1]=m.predicted});
+ mk("scE",{type:"bar",data:{labels:MN,datasets:[{label:`Actual MODIS ${y.year}`,data:A,backgroundColor:"#d95f02"},{label:"Predicted MODIS-equivalent (VIIRS / ratio fitted without this year)",data:P,backgroundColor:"#1b9e77"}]},
+  options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:cssv("--mut")}},title:{display:true,text:y.smape_pct==null?`${y.year}: ${y.reason||"no metrics"}`:`${y.year}: sMAPE ${y.smape_pct.toFixed(1)}%, bias ${y.bias_pct.toFixed(1)}%`,color:cssv("--mut")},
+   tooltip:{callbacks:{afterBody:it=>{const m=by[it[0].dataIndex];if(!m)return["No overlap data this month."];return m.excluded_reason?[`Not evaluated: ${m.excluded_reason}`]:[`VIIRS ${n1p(m.viirs)} / ratio ${m.ratio_used.toFixed(2)} (${m.ratio_source})`]}}}},
+   scales:{x:ax("Calendar month"),y:ax("MODIS detections per month",{beginAtZero:true})}}})}
+
+function renderTimeline(){const T=SC.platform_timeline,P=SC.product_streams;
+ const rows=T.rows.map(r=>`<tr><td class="l">${r.label}</td><td class="l">${r.launch||NA}</td><td class="l">${r.documented_start||NA}${r.documented_start_basis?`<div class="note">${esc(r.documented_start_basis)}</div>`:""}</td><td class="l">${r.documented_end||NA}</td><td class="l">${r.in_record?r.detected_first_month+" to "+r.detected_last_month:'<span class="na">no detections in record</span>'}</td><td class="l">${esc(r.documented_note||"")}${r.flags.map(f=>`<div class="err" style="display:block">${esc(f)}</div>`).join("")}</td></tr>`);
+ const sr=P.available?P.rows.map(r=>`<tr><td class="l">${PLAB[r.platform]||r.platform}</td><td class="l">${r.stream}</td><td>${r.detections.toLocaleString()}</td><td class="l">${r.first_month} to ${r.last_month}</td></tr>`):[];
+ $("scG").innerHTML=tbl([["Platform","l"],["Launch (NASA)","l"],["Documented start","l"],["Documented end","l"],["Detected in this record","l"],["Note","l"]],rows)+
+  `<p class="note">${esc(T.caution)} Documented facts retrieved ${T.retrieved}; blank = not verified.</p>`+
+  (P.available?`<h3>Product streams in the processed region</h3>`+tbl([["Platform","l"],["Stream","l"],["Detections"],["Months","l"]],sr)+P.notes.map(n=>`<div class="note">${esc(n)}</div>`).join(""):P.notes.map(n=>`<div class="note">${esc(n)}</div>`).join(""))+renderJoin()+renderTypes()}
+function renderTypes(){const cs=(META.cleaning&&META.cleaning.sensors)||{},rows=[];
+ for(const k of Object.keys(cs)){for(const t of (cs[k].type_breakdown||[]))rows.push(`<tr><td class="l">${k.toUpperCase()}</td><td class="l">${t.raw_code==null?NA:t.raw_code}</td><td class="l">${esc(t.documented_meaning)}</td><td>${t.count.toLocaleString()}</td><td class="l">${t.kept?"kept":"excluded"}</td></tr>`)}
+ return rows.length?`<h3>Excluded by hotspot type (before other filters)</h3>`+tbl([["Sensor","l"],["Raw type","l"],["Documented meaning","l"],["Rows"],["Filter","l"]],rows)+`<p class="note">Raw FIRMS type codes are kept in the data. Meanings come from copies of the FIRMS attribute table (official page not read); codes without a listed meaning are not interpreted.</p>`:""}
+function renderJoin(){const J=SC.stream_join;if(!J)return"";if(!J.available)return`<h3>NRT to standard-processing join</h3>`+J.notes.map(n=>`<div class="note">${esc(n)}</div>`).join("");
+ const ST={LEVEL_SHIFT_FLAGGED:"level shift flagged",NO_LARGE_SHIFT_DETECTED:"no large shift detected",INSUFFICIENT_EVIDENCE:"insufficient evidence",NOT_APPLICABLE:"not applicable",NO_STREAM_INFORMATION:"no stream information"};
+ return`<h3>NRT to standard-processing join (per VIIRS platform)</h3>`+tbl([["Platform","l"],["First NRT month","l"],["Last SP month","l"],["Months compared"],["NRT vs SP level"],["Status","l"]],J.rows.map(r=>`<tr><td class="l">${r.label}</td><td class="l">${r.first_nrt_month||NA}</td><td class="l">${r.last_sp_month||NA}</td><td>${r.compared_months}</td><td>${r.shift_pct==null?NA:(r.shift_pct>0?"+":"")+r.shift_pct.toFixed(1)+"%"}</td><td class="l" title="${esc(r.reason||"")}">${ST[r.status]||r.status}</td></tr>`))+`<p class="note">${esc(J.caution||"")} Flag threshold: ${(100*J.thresholds.flag_abs_shift).toFixed(0)}% (an engineering choice); needs ${J.thresholds.min_compared_nrt_months}+ compared months.</p>`}
+/* F */
+function renderSens(){const S=SC.sensitivity,t=S.time_period,pc=S.platform_combination,lab={LARGE_SPREAD:"large spread",SMALL_SPREAD:"small spread",INSUFFICIENT_EVIDENCE:"insufficient evidence"},j=t.leave_one_year_out_global_median;
+ $("scF").innerHTML=`<p><b>Time period</b>: ${lab[t.label]}${t.relative_spread!=null?` (window medians differ by ${(100*t.relative_spread).toFixed(0)}% of the whole-record median; flag above ${(100*SC.thresholds.sensitivity_relative_spread_flag).toFixed(0)}%)`:""}</p>`+
+  tbl([["Window","l"],["From","l"],["To","l"],["Usable months"],["Median"],["25th"],["75th"],["Evidence","l"]],t.windows.map(w=>`<tr><td class="l">${w.label}</td><td class="l">${w.start||"n/a"}</td><td class="l">${w.end||"n/a"}</td><td>${w.n_usable_months}</td><td>${n2(w.median)}</td><td>${n2(w.q25)}</td><td>${n2(w.q75)}</td><td class="l">${EVL(w.evidence)}</td></tr>`))+
+  `<p class="note">Dropping any one year moves the overall median between ${n2(j.min_median)} and ${n2(j.max_median)}${j.year_min?` (years ${j.year_min} and ${j.year_max})`:""}.</p>`+
+  `<p><b>Platform pair</b> (selected dates): ${lab[pc.label]}${pc.relative_spread!=null?` (medians differ by ${(100*pc.relative_spread).toFixed(0)}% of their median)`:""}</p>`+
+  tbl([["Pair","l"],["Usable months"],["Median"],["25th"],["75th"],["Status","l"]],pc.combinations.map(c=>`<tr${c.is_selected?' style="font-weight:700"':""}><td class="l">${c.label}</td><td>${c.n_usable_months}</td><td>${n2(c.median)}</td><td>${n2(c.q25)}</td><td>${n2(c.q75)}</td><td class="l" title="${esc(c.reason||"")}">${c.status==="OK"?EVL(c.evidence):c.status==="UNAVAILABLE"?"unavailable":"insufficient evidence"}</td></tr>`))+
+  `<p class="note">${esc(S.note)} Unavailable = that platform has no data in the processed record.</p>`}
+
+/* ---- Data quality and filter sensitivity. All numbers come from /api/quality or data/quality.json; nothing is recomputed here. */
+let Q=null,QR=null,QSTATIC=null,qReq=0,qTimer=null,qLast="",qCmp="all_valid",qOn=null;
+const QKIND={invalid_record:"removed: invalid",redundant_record:"removed: duplicate rows",scope:"scope",analytical_filter:"optional filter (active profile)"};
+const QCOL=["#1d1d1b","#b4400f","#1b9e77","#7570b3","#e6ab02","#e7298a","#666666"];
+function qBody(){return SEL||regionPoly()}
+let qVisible=false;   // the quality view is computed only once its section has been scrolled into view (it costs about a second of server time)
+function loadQuality(){if(!qVisible)return;clearTimeout(qTimer);qTimer=setTimeout(doLoadQuality,300)}
+if("IntersectionObserver" in window)new IntersectionObserver((e,o)=>{if(e.some(x=>x.isIntersecting)){qVisible=true;o.disconnect();loadQuality()}},{rootMargin:"300px"}).observe(document.getElementById("qualSec"));
+else setTimeout(()=>{qVisible=true;loadQuality()},8000)
+async function doLoadQuality(){
+ const[y0,y1]=range(),key=JSON.stringify([SEL,y0,y1,$("baseline").value,API]);if(key===qLast&&Q)return;
+ $("qErr").textContent="";
+ if(QSTATIC&&QSTATIC.report)QR=QSTATIC.report;
+ if(!API){Q=QSTATIC&&QSTATIC.sensitivity_region&&QSTATIC.sensitivity_region.available?QSTATIC.sensitivity_region:null;qLast="";renderQuality(!!Q);return}
+ const id=++qReq;$("qState").textContent=Q?"Updating...":"Loading...";
+ try{const j=await post("/api/quality",{...qBody(),baseline:$("baseline").value,start:`${y0}-01`,end:`${y1}-12`});if(id!==qReq)return;Q=j;qLast=key;renderQuality(false)}
+ catch(e){if(id!==qReq)return;$("qErr").textContent="Quality view could not be computed: "+e.message;$("qState").textContent=""}}
+function qChips(){const o=$("qOrigin"),a=$("qActive"),s=$("qSel");if(!Q){[o,a,s].forEach(x=>{x.textContent="";x.className="chip"});return}
+ const syn=Q.data_origin==="SYNTHETIC_DEMO";o.className="chip "+(syn?"bad":"ok");o.textContent=syn?"SYNTHETIC demo data: illustrative only":"NASA FIRMS data";
+ a.className="chip";a.textContent="Active profile: "+(Q.profiles.find(p=>p.id===Q.active_profile)||{label:Q.active_profile}).label;s.className="chip";s.textContent=(Q.selection||"")+" ("+Q.valid_records_in_selection.toLocaleString()+" valid records)"}
+function renderQuality(staticMode){
+ if(!Q){$("qBody").style.display="none";qChips();$("qState").textContent=API?"No quality layer found: run python run_pipeline.py (it writes the quality tables).":"The quality view needs data/quality.json (written by run_pipeline.py) or the local server (python serve.py).";return}
+ $("qBody").style.display="grid";$("qState").textContent=staticMode?"Static view: whole processing region only. Run python serve.py for your drawn area.":"";qChips();
+ if(!qOn)qOn=new Set([Q.active_profile,"all_valid","high_confidence"]);
+ const P=Q.profiles,cmp=$("qCmp");cmp.innerHTML=P.filter(p=>p.id!==Q.active_profile).map(p=>`<option value="${p.id}">${esc(p.label)}</option>`).join("");
+ if(!P.some(p=>p.id===qCmp&&p.id!==Q.active_profile))qCmp=(P.find(p=>p.id!==Q.active_profile)||{}).id;cmp.value=qCmp;cmp.onchange=()=>{qCmp=cmp.value;qDelta()};
+ qSteps();qFlags();qProfiles();qChartA();qChartB();qDelta();qAnom();qPlat()}
+function qSteps(){const R=QR;if(!R||!R.removal_steps){$("qSteps").innerHTML="<p class='note'>Per-rule counts are not available (re-run the pipeline).</p>";return}
+ const rows=[];for(const k of Object.keys(R.removal_steps)){const pr=R.profiles[R.active_profile].sensors[k]||{};let first=true;
+  for(const st of R.removal_steps[k]){rows.push(`<tr><td class="l">${first?k.toUpperCase():""}</td><td class="l">${esc(st.step)}</td><td class="l">${QKIND[st.kind]||st.kind}</td><td class="l">${esc(st.rule)}</td><td>${st.removed.toLocaleString()}</td></tr>`);first=false}
+  rows.push(`<tr style="font-weight:700"><td class="l">${k.toUpperCase()}</td><td class="l" colspan="3">valid records (before any optional filter) / retained under the active profile</td><td>${(pr.valid_records||0).toLocaleString()} / ${(pr.retained||0).toLocaleString()}</td></tr>`)}
+ $("qSteps").innerHTML=tbl([["Sensor","l"],["Step","l"],["Type","l"],["Rule","l"],["Records removed"]],rows)+`<p class="note">Removal steps run in this order, so each count is what that step removed after the earlier ones. Records removed as invalid are listed with the reason in <code>quality/*_rejected.csv.gz</code>; raw files in <code>raw/</code> are untouched.</p>`}
+function qFlags(){const rows=Q.flags.map(f=>`<tr><td class="l">${esc(f.label)}${f.exploratory?' <span class="chip warn">exploratory</span>':""}<div class="note">${esc(f.meaning)}</div></td><td class="l">${f.group}</td><td>${f.records.toLocaleString()}</td><td>${f.share_pct==null?NA:f.share_pct.toFixed(2)+"%"}</td></tr>`);
+ $("qFlags").innerHTML=tbl([["Flag","l"],["Group","l"],["Records flagged"],["Share of valid records"]],rows)+`<p class="note">A record can carry several flags. Flagged records are still counted in the calendar unless the active profile excludes them.</p>`}
+function qProfiles(){const rows=Q.profiles.map((p,i)=>{const r=p.ratio,v=p.vs_active,act=p.id===Q.active_profile;
+ return`<tr${act?' style="font-weight:700"':""}><td><input type="checkbox" class="qp" data-id="${p.id}" ${qOn.has(p.id)?"checked":""} aria-label="Show ${esc(p.label)} in the chart"></td>
+ <td class="l">${esc(p.label)}${act?' <span class="chip ok">active</span>':""}${p.exploratory?' <span class="chip warn">exploratory only</span>':""}<div class="note">${esc(p.description)}</div></td>
+ <td>${p.records.retained.toLocaleString()}</td><td>${p.records.share_retained_pct==null?NA:p.records.share_retained_pct.toFixed(1)+"%"}</td>
+ <td>${r?n2(r.median):NA}</td><td>${r?r.usable_overlap_months:NA}</td><td>${p.anomalies.months_assessed?p.anomalies.much_above.length+" / "+p.anomalies.much_below.length:NA}</td>
+ <td>${v?p1(v.median_abs_change_pct):"&ndash;"}</td><td>${v?n2(v.index_correlation):"&ndash;"}</td><td>${v?(v.anomaly_jaccard==null?NA:n2(v.anomaly_jaccard)):"&ndash;"}</td></tr>`});
+ $("qProfiles").innerHTML=tbl([["Show"],["Profile","l"],["Records kept"],["Share kept"],["VIIRS/MODIS ratio"],["Usable overlap months"],["Anomalies above / below"],["Median |change| of index vs active"],["Index correlation vs active"],["Anomaly agreement (Jaccard)"]],rows);
+ $("qProfiles").querySelectorAll(".qp").forEach(c=>c.onchange=()=>{c.checked?qOn.add(c.dataset.id):qOn.delete(c.dataset.id);qChartA()})}
+function qChartA(){const P=Q.profiles.filter(p=>qOn.has(p.id)),labels=Q.profiles[0].monthly.map(m=>m.month);
+ mk("qA",{type:"line",data:{labels,datasets:P.map(p=>({label:p.label+(p.id===Q.active_profile?" (active)":""),data:p.monthly.map(m=>m.harmonized),borderColor:QCOL[Q.profiles.indexOf(p)%QCOL.length],backgroundColor:QCOL[Q.profiles.indexOf(p)%QCOL.length],pointRadius:0,borderWidth:p.id===Q.active_profile?2.5:1.3,spanGaps:false,tension:0}))},
+ options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:"index",intersect:false},plugins:{legend:{labels:{color:cssv("--mut")}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y==null?"no value":c.parsed.y.toFixed(1)}`}}},scales:{x:{ticks:{color:cssv("--mut"),maxTicksLimit:14},grid:{color:cssv("--bd")}},y:ax("Harmonised index (MODIS-equivalent scale)",{beginAtZero:true})}}})}
+function qChartB(){const P=Q.profiles.filter(p=>p.ratio);
+ mk("qB",{type:"bar",data:{labels:P.map(p=>p.label),datasets:[{label:"Median VIIRS/MODIS ratio",data:P.map(p=>p.ratio.median),backgroundColor:P.map(p=>p.id===Q.active_profile?"#b4400f":"#8a8a82")}]},
+ options:{responsive:true,maintainAspectRatio:false,animation:false,indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:c=>{const r=P[c.dataIndex].ratio;return`25th-75th percentile ${n2n(r.q25)} to ${n2n(r.q75)}; ${r.usable_overlap_months} usable overlap months; basis ${P[c.dataIndex].ratio_basis.split(" (")[0]}`}}}},scales:{x:ax("Median ratio of VIIRS to MODIS detections",{beginAtZero:true}),y:{ticks:{color:cssv("--mut")},grid:{color:cssv("--bd")}}}}});
+ $("qBt").textContent="The ratio is an observed relationship for this area, period and profile. It is not a physical constant, and the spread across profiles is not a confidence interval."}
+const n2n=v=>v==null?"n/a":(+v).toFixed(2);
+function qDelta(){const act=Q.profiles.find(p=>p.id===Q.active_profile),p=Q.profiles.find(x=>x.id===qCmp);if(!p||!act){$("qDelta").innerHTML="";return}
+ const by={};p.monthly.forEach((m,i)=>{const a=act.monthly[i].harmonized,b=m.harmonized,y=m.month.slice(0,4),mo=+m.month.slice(5);(by[y]=by[y]||{})[mo]=(a==null||b==null)?undefined:(a>0?(b-a)/a*100:(b===0?0:null))});
+ const col=v=>{if(v==null)return"";const t=Math.max(-1,Math.min(1,v/100)),c=t<0?`rgba(27,158,119,${Math.abs(t)*.85})`:`rgba(180,64,15,${t*.85})`;return`background:${c}`};
+ const rows=Object.keys(by).sort().map(y=>`<tr><th>${y}</th>${MN.map((_,i)=>{const v=by[y][i+1];return v===undefined?`<td class="hatch"></td>`:v===null?`<td title="active value is 0">&middot;</td>`:`<td style="${col(v)}" title="${MN[i]} ${y}: ${v.toFixed(0)}%">${Math.abs(v)>=1?v.toFixed(0):""}</td>`}).join("")}</tr>`);
+ $("qDelta").innerHTML=`<table class="mini"><tr><th></th>${MN.map(m=>`<th>${m}</th>`).join("")}</tr>${rows.join("")}</table>`}
+function qAnom(){const act=Q.profiles.find(p=>p.id===Q.active_profile),rows=Q.profiles.filter(p=>p.vs_active).map(p=>{const v=p.vs_active;
+ return`<tr><td class="l">${esc(p.label)}</td><td>${p.anomalies.months_assessed}</td><td class="l">${v.anomaly_only_here.length?v.anomaly_only_here.join(", "):"none"}</td><td class="l">${v.anomaly_only_active.length?v.anomaly_only_active.join(", "):"none"}</td></tr>`});
+ $("qAnom").innerHTML=tbl([["Profile","l"],["Months assessed"],["Flagged only under this profile","l"],["Flagged only under the active profile","l"]],rows)+`<p class="note">Flagged = |robust z| of at least 2 on the harmonised index, baseline: ${esc(Q.baseline_mode.replace(/_/g," "))}. At least ${Q.min_baseline_years} usable baseline years are needed; with fewer, no anomaly is shown. Historical anomalies are not forecasts and not fire danger.</p>`}
+function qPlat(){const R=QR;if(!R||!R.platform_summary){$("qPlat").innerHTML="<p class='note'>Not available.</p>";return}
+ const rows=R.platform_summary.map(r=>`<tr><td class="l">${PLAB[r.platform]||r.platform}</td><td>${r.records.toLocaleString()}</td><td>${r.conf_low_pct.toFixed(1)}%</td><td>${r.night_pct.toFixed(1)}%</td><td>${n1(r.frp_median)}</td><td>${r.frp_extreme_high_pct.toFixed(2)}%</td><td>${r.near_duplicate_pct.toFixed(2)}%</td><td>${r.isolated_pct.toFixed(1)}%</td></tr>`);
+ $("qPlat").innerHTML=tbl([["Platform","l"],["Valid records"],["Low-confidence class"],["Night"],["Median FRP (MW)"],["Extreme-high FRP"],["Near-duplicate"],["Isolated"]],rows)+`<p class="note">MODIS and VIIRS confidence scales differ (0&ndash;100 % classes versus l/n/h), so the low-confidence share is not directly comparable across families. Differences between platforms can be real (overpass time, pixel size) as well as quality-related.</p>`}
+function qCsv(){if(!Q)return;const[y0,y1]=range(),origin=Q.data_origin,head=[`# FirePulse quality-filter sensitivity. Data origin: ${origin}. Area: ${Q.selection}. Months ${Q.range.start} to ${Q.range.end}. Anomaly baseline: ${Q.baseline_mode}. Active profile: ${Q.active_profile}. Generated ${new Date().toISOString()}`,
+ "# Empty cell = unknown (not zero). Index = MODIS-equivalent scale (an index, not a count of fires). Each profile is applied to the same valid observations; flags and raw records are unchanged.",
+ "# Profiles: "+Q.profiles.map(p=>p.id+" = "+p.description.replace(/,/g,";")).join(" | "),
+ "profile,month,modis_detections,viirs_detections,harmonized_index,robust_z,band,ratio_basis,retained_records_in_selection,data_origin"];
+ const rows=[];Q.profiles.forEach(p=>p.monthly.forEach(m=>rows.push([p.id,m.month,m.modis,m.viirs,m.harmonized==null?"":m.harmonized.toFixed(3),m.z==null?"":m.z.toFixed(3),m.band,p.ratio_basis.split(" (")[0],p.records.retained,origin].map(v=>v==null?"":v).join(","))));
+ dl("firepulse_quality_sensitivity.csv",head.concat(rows).join("\n"),"text/csv")}
+/* ---- init */
+function opt(sel,vals,def){sel.innerHTML=vals.map(v=>`<option value="${v[0]}">${v[1]}</option>`).join("");sel.value=def}
+let rangeTimer=null;
+const loadingTips=[
+ "A hotspot is a satellite-detected thermal anomaly—not automatically a confirmed wildfire.",
+ "MODIS and VIIRS have different pixel sizes and detection characteristics; raw counts are not directly comparable.",
+ "A month without coverage is unknown—not a zero-detection month."
+];
+let tipTimer=null,tipIndex=0;
+function rotateLoadingTip(){
+ const copy=$("loadingTip");
+ copy.classList.add("is-changing");
+ tipTimer=setTimeout(()=>{tipIndex=(tipIndex+1)%loadingTips.length;copy.textContent=loadingTips[tipIndex];$("adviceLabel").textContent=`Field note 0${tipIndex+1}`;copy.classList.remove("is-changing");tipTimer=setTimeout(rotateLoadingTip,4600)},220);
+}
+function finishStartup(){
+ clearTimeout(tipTimer);
+ $("loadingStatus").textContent="Explorer ready";
+ $("app-shell").removeAttribute("inert");
+ $("app-shell").removeAttribute("aria-hidden");
+ const screen=$("loadingScreen");
+ screen.classList.add("is-exiting");
+ screen.addEventListener("transitionend",()=>screen.remove(),{once:true});
+ setTimeout(()=>screen.remove(),500);
+}
+function failStartup(error){
+ $("loadingStatus").textContent="FirePulse could not finish starting.";
+ $("loadingErrorMessage").textContent="Could not initialize the explorer: "+error.message;
+ $("loadingError").hidden=false;
+ $("retryStartup").onclick=()=>location.reload();
+ clearTimeout(tipTimer);
+}
+if(!window.matchMedia||!window.matchMedia("(prefers-reduced-motion: reduce)").matches)tipTimer=setTimeout(rotateLoadingTip,4600);
+async function init(){
+ $("loadingStatus").textContent="Loading satellite observations…";
+ [META,CELLS]=await Promise.all(["data/meta.json","data/cells.json"].map(u=>fetch(u).then(r=>r.json())));REC=CELLS.rec;
+ $("loadingStatus").textContent="Preparing the interactive explorer…";
+ try{const r=await fetch("data/quality.json");if(r.ok)QSTATIC=await r.json()}catch(e){QSTATIC=null}
+ if(META.demo||META.data_origin==="SYNTHETIC_DEMO")$("demo").style.display="block";
+ try{const h=await fetch("/api/health").then(r=>r.ok?r.json():null);API=!!(h&&h.ok&&h.api===1&&(!META.data_origin||h.data_origin===META.data_origin))}catch(e){API=false}
+ $("baseline").disabled=!API;if(!API)$("baseNote").textContent="Needs python serve.py (the static page uses the all-other-years baseline).";
+ const ys=[...new Set(META.months.map(m=>+m.slice(0,4)))],last=META.months[META.months.length-1];
+ opt($("y0"),ys.map(y=>[y,y]),ys[0]);opt($("y1"),ys.map(y=>[y,y]),ys[ys.length-1]);opt($("tY"),ys.map(y=>[y,y]),+last.slice(0,4));opt($("tM"),MN.map((m,i)=>[i+1,m]),+last.slice(5));
+ const v=META.validation;$("val").innerHTML=v&&v.years?`<p><b>Validation</b> (leave-one-year-out, ${v.years} overlap years): median sMAPE ${v.median_smape_pct.toFixed(0)}%, median absolute bias ${v.median_abs_bias_pct.toFixed(0)}%, correlation ${v.pooled_corr==null?"n/a":v.pooled_corr.toFixed(2)}.</p>`:"";
+ map=L.map("map").setView([(META.bbox[1]+META.bbox[3])/2,(META.bbox[0]+META.bbox[2])/2],7);
+ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap contributors"}).addTo(map);
+ L.rectangle([[META.bbox[1],META.bbox[0]],[META.bbox[3],META.bbox[2]]],{color:"#888",weight:1,fill:false}).addTo(map);
+ layer=new L.FeatureGroup().addTo(map);ptLayer=L.layerGroup().addTo(map);
+ map.addControl(new L.Control.Draw({edit:{featureGroup:layer,remove:true},draw:{polygon:true,rectangle:true,polyline:false,circle:false,marker:false,circlemarker:false}}));
+ map.on(L.Draw.Event.CREATED,e=>{layer.clearLayers();layer.addLayer(e.layer);select(polyPayload(ringOf(e.layer.getLatLngs()[0])))});
+ map.on(L.Draw.Event.EDITED,e=>{e.layers.eachLayer(l=>select(polyPayload(ringOf(l.getLatLngs()[0]))))});
+ map.on(L.Draw.Event.DELETED,()=>clearSel());
+ map.on("click",e=>{if(!pointMode)return;pointMode=false;$("pointMode").classList.remove("p");map.getContainer().style.cursor="";
+  const r=parseFloat($("rad").value);if(isNaN(r)){$("aoiErr").textContent="Enter a radius in km.";return}
+  select({point:{lat:e.latlng.lat,lon:e.latlng.lng,radius_km:r,snap_to_grid:$("snap").checked}})});
+ $("pointMode").onclick=()=>{pointMode=!pointMode;$("pointMode").classList.toggle("p",pointMode);map.getContainer().style.cursor=pointMode?"crosshair":""};
+ $("reset").onclick=clearSel;
+ $("applyBox").onclick=()=>{const[w,s,e,n]=["w","s","e","n"].map(k=>parseFloat($(k).value));if([w,s,e,n].some(isNaN)||w>=e||s>=n){$("aoiErr").textContent="Enter valid numbers with west < east and south < north.";return}
+  select(polyPayload([[w,s],[e,s],[e,n],[w,n]]))};
+ $("gjFile").onchange=async ev=>{const f=ev.target.files[0];if(!f)return;try{select({geometry:JSON.parse(await f.text())})}catch(e){$("aoiErr").textContent="That file is not valid JSON."}ev.target.value=""};
+ ["y0","y1"].forEach(id=>$(id).onchange=()=>{if(API&&SEL){clearTimeout(rangeTimer);rangeTimer=setTimeout(()=>select(SEL),150)}else refresh()});
+ $("mode").onchange=()=>{renderCal();renderChart()};$("baseline").onchange=()=>{if(API&&SEL)select(SEL);else if(API)loadSensor()};["tY","tM"].forEach(id=>$(id).onchange=renderAnom);
+ $("dlCsv").onclick=()=>dl("firepulse_monthly.csv",series2csv(),"text/csv");
+ $("dlPng").onclick=()=>dl("firepulse_chart.png",$("chart").toDataURL("image/png"));
+ $("dlGj").onclick=()=>dl("firepulse_area.geojson",geojsonOut(),"application/geo+json");
+ $("dlPts").onclick=()=>{if(!lastPts){$("calNote").textContent="Click a month in the calendar first (needs python serve.py).";return}
+  const rows=["# FirePulse detections for "+lastPts.meta.month+" ("+lastPts.data_origin+"); "+lastPts.meta.note,"# quality profile: "+(lastPts.meta.quality_profile||"n/a")+". Original confidence and FRP are unchanged; flags are listed separately.","date,latitude,longitude,platform,sensor,frp_mw,daynight,confidence,confidence_class,in_active_profile,flags"].concat(lastPts.features.map(f=>[f.properties.date,f.geometry.coordinates[1],f.geometry.coordinates[0],f.properties.platform,f.properties.sensor,f.properties.frp==null?"":f.properties.frp,f.properties.daynight,f.properties.confidence,f.properties.conf_class||"",f.properties.in_active_profile==null?"":f.properties.in_active_profile,(f.properties.flags||[]).join(";")].join(",")));
+  dl("firepulse_detections_"+lastPts.meta.month+".csv",rows.join("\n"),"text/csv")};
+ $("dlRep").onclick=()=>{const t=series2csv().split("\n").filter(r=>!r.startsWith("#")).slice(-25).map(r=>"<tr>"+r.split(",").map(c=>`<td>${c}</td>`).join("")+"</tr>").join("");
+  const origin=META.data_origin||(META.demo?"SYNTHETIC_DEMO":"NASA_FIRMS");
+  dl("firepulse_report.html",`<!doctype html><meta charset=utf-8><title>FirePulse report</title><body style="font:15px system-ui;max-width:860px;margin:2em auto"><h1>FirePulse report</h1>${origin==="SYNTHETIC_DEMO"?"<p style='background:#b4400f;color:#fff;padding:6px'><b>SYNTHETIC DEMONSTRATION DATA: not NASA observations.</b></p>":""}<p>${$("aoiText").textContent} &middot; ${$("modeChip").textContent}</p><p>Data origin: ${origin}. Generated ${new Date().toISOString()}</p>${$("summary").innerHTML}<h2>Anomaly card</h2>${$("anom").innerHTML}<h2>Last 24 months</h2><table border=1 cellpadding=3>${t}</table><h2>Limits</h2><p>Hotspots are satellite detections, not fire events or burned area. Harmonized values are an index on the MODIS-equivalent scale with an estimated uncertainty. Highest observed hotspot activity is not fire danger or a forecast.</p>`,"text/html")};
+ document.querySelectorAll(".pl").forEach(c=>c.onchange=()=>{clearTimeout(scTimer);scTimer=setTimeout(loadSensor,200)});
+ $("plAll").onclick=()=>{document.querySelectorAll(".pl").forEach(c=>c.checked=true);loadSensor()};
+ $("scJson").onclick=()=>{if(SC)dl("firepulse_sensor_intelligence.json",JSON.stringify(SC,null,1),"application/json")};
+ ["y0","y1"].forEach(id=>$(id).addEventListener("change",()=>{if(!SEL){clearTimeout(scTimer);scTimer=setTimeout(loadSensor,200)}}));
+ $("scDmode").onchange=()=>{if(SC)chartD()};$("scEy").onchange=()=>{scYear=+$("scEy").value;if(SC)chartE()};
+ $("qCsv").onclick=qCsv;$("qJson").onclick=()=>{if(QR||Q)dl("firepulse_quality_report.json",JSON.stringify({report:QR,sensitivity:Q},null,1),"application/json")};
+ clearSel();
+ if(!API)$("calNote").textContent="Exact area analysis and per-month detections need the local server: run python serve.py (see README).";
+ }
+init().then(finishStartup).catch(failStartup);
+</script></body></html>
