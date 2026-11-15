@@ -1,4 +1,11 @@
-"""Local server for the static dashboard and area-analysis API."""
+"""FirePulse local server: static site (web/) + JSON API for exact-area analysis.
+
+    python serve.py                 # real data in data/
+    python serve.py --demo          # synthetic data in data_demo/
+    python serve.py --port 8001
+
+Open http://localhost:8000 . Binds to 127.0.0.1 only. Uses the Python standard library (Windows friendly).
+"""
 import argparse
 import json
 import math
@@ -24,14 +31,13 @@ def _jsonable(o):
 
 
 def _enhance_dashboard(html: str) -> str:
-    """Load the separate-page organizer and stylesheet without altering analysis code."""
+    """Load the shared navigation shell and UI styling required by the dashboard routes."""
     style = '<link rel="stylesheet" href="/dashboard-enhancements.css">'
     script = '<script src="/dashboard-enhancements.js" defer></script>'
     if "dashboard-enhancements.css" not in html:
         html = html.replace("</head>", style + "</head>", 1)
     if "dashboard-enhancements.js" not in html:
         html = html.replace("</body>", script + "</body>", 1)
-    # The existing inline frontend references this status node when changing baselines.
     if 'id="baseNote"' not in html and '<div id="peaks"' in html:
         html = html.replace('<div id="peaks"', '<div id="baseNote" class="note" role="status"></div><div id="peaks"', 1)
     return html
@@ -84,7 +90,7 @@ def make_handler(ds, web_dir):
                 return self._send(200, routes[path](ds, payload))
             except (spatial.GeometryError, area.AreaError) as e:
                 return self._send(422, {"error": str(e)})
-            except Exception as e:
+            except Exception as e:  # Never leak stack traces to the browser.
                 print("internal error:", repr(e), file=sys.stderr)
                 return self._send(500, {"error": "Internal error while analysing the area."})
 
@@ -103,7 +109,6 @@ def main(argv=None):
         os.environ["FIREPULSE_DEMO"] = "1"
     else:
         os.environ.pop("FIREPULSE_DEMO", None)
-
     from firepulse.area import Dataset, AreaError
     from firepulse.config import WEB_DATA, DEMO
     if not DEMO and WEB_DATA.joinpath("meta.json").exists():
@@ -114,7 +119,6 @@ def main(argv=None):
         ds = Dataset()
     except AreaError as e:
         sys.exit(f"Cannot start: {e}")
-
     srv = ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(ds, WEB_DATA.parent))
     print(f"FirePulse on http://localhost:{a.port}  (data origin: {ds.origin}, {len(ds.points)} detections)  Ctrl+C to stop")
     try:
