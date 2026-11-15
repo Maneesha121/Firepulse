@@ -216,26 +216,7 @@ FirePulse is an independent project and is not an official NASA application.
 - Seasonal anomaly scores are exploratory analytical outputs, not predictions of future fires.
 - The application does not replace official fire monitoring, emergency-response systems, or ground verification.
 
-## Repository Structure
 
-```text
-Firepulse/
-├── firepulse/
-│   ├── schema.py
-│   └── coverage.py
-├── data/
-│   ├── raw/
-│   └── clean/
-├── web/
-│   └── data/
-├── docs/
-│   └── real_data_preflight.md
-├── run_pipeline.py
-├── serve.py
-├── validate_submission.py
-├── requirements.txt
-└── README.md
-```
 
 ## Built For
 
