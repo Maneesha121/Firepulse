@@ -1,6 +1,6 @@
 # Stage 6 summary (master prompt P0 items 2 to 6)
 
-Real NASA data was NOT run. Everything below is tested on synthetic fixtures only.
+The supplied `data/raw/` folders contain NASA FIRMS SP-format CSV windows for MODIS, Suomi-NPP VIIRS, NOAA-20 VIIRS and NOAA-21 VIIRS. The files were inspected for headers, readable windows and empty replies. The full pipeline has not yet been run on them; all analytical results and feature tests described below remain unverified on this real dataset.
 
 | Item | What was added | Status |
 |---|---|---|
@@ -16,4 +16,4 @@ Real NASA data was NOT run. Everything below is tested on synthetic fixtures onl
 - Past-only z = 0.6745 (x - median) / MAD using only earlier years; unchanged otherwise.
 
 ## Still open
-Real-data smoke run (P0 item 1, needs a MAP_KEY), official attribute pages for confidence/daynight/version/scan/track, observation coverage, PDF report, Playwright/CI, two-experience UI.
+Run `python run_pipeline.py` (no MAP_KEY required for the supplied files) and inspect the resulting cleaning/coverage reports, harmonization and validation before presenting. Refreshing FIRMS coverage requires a MAP_KEY. Official attribute pages for confidence/daynight/version/scan/track, PDF report, Playwright/CI, two-experience UI remain open.

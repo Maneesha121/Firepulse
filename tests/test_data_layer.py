@@ -43,12 +43,14 @@ def test_rows_without_coverage_evidence_do_not_claim_completeness():
     assert df["status"].tolist() == ["OBSERVED_WITH_DETECTIONS", "INSUFFICIENT_EVIDENCE"] and df["evidence"].tolist() == ["NONE", "NONE"]
 
 
-def test_family_coverage_is_conservative_across_platform_folders(tmp_path):
+def test_family_coverage_combines_platform_streams_without_losing_earlier_coverage(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"; a.mkdir(); b.mkdir()
     (a / "coverage.json").write_text(json.dumps({"windows": [{"start": "2020-01-01", "end": "2020-03-31"}]}))
     (b / "coverage.json").write_text(json.dumps({"windows": [{"start": "2020-02-01", "end": "2020-03-31"}]}))
     cov, _ = coverage.family_coverage([a, b])
-    assert pd.Period("2020-01") not in cov.index and cov[pd.Period("2020-02")] == 29
+    assert cov[pd.Period("2020-01")] == 31
+    assert cov[pd.Period("2020-02")] == 29
+    assert cov[pd.Period("2020-03")] == 31
 
 
 # ---------------------------------------------------------------- cleaning accounting

@@ -42,7 +42,7 @@ def make_handler(ds, web_dir):
             return super().do_GET()
 
         def do_POST(self):
-            routes = {"/api/area": api.handle_area, "/api/points": api.handle_points}
+            routes = {"/api/area": api.handle_area, "/api/points": api.handle_points, "/api/quality": api.handle_quality}
             if self.path not in routes:
                 return self._send(404, {"error": "Unknown endpoint."})
             try:
@@ -73,8 +73,14 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.demo:
         os.environ["FIREPULSE_DEMO"] = "1"
+    else:
+        os.environ.pop("FIREPULSE_DEMO", None)
     from firepulse.area import Dataset, AreaError
-    from firepulse.config import WEB_DATA
+    from firepulse.config import WEB_DATA, DEMO
+    if not DEMO and WEB_DATA.joinpath("meta.json").exists():
+        meta = json.loads(WEB_DATA.joinpath("meta.json").read_text())
+        if meta.get("data_origin") == "SYNTHETIC_DEMO":
+            sys.exit("The generated web data is still synthetic. Run python run_pipeline.py to process the FIRMS files in data/raw/ first; use python serve.py --demo only for the synthetic demo.")
     try:
         ds = Dataset()
     except AreaError as e:

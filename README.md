@@ -7,36 +7,54 @@ for the 2026 NASA Space Apps challenge "Harmonization of MODIS and VIIRS Hot Spo
 burning and other heat sources. This project is an application-level contribution built on existing
 methods; it does not improve fire detection.
 
-## Quick start (offline demo, synthetic data)
+## Quick start (included NASA FIRMS data)
+
+The repository includes NASA FIRMS Standard Processing (SP) CSVs for MODIS, Suomi-NPP VIIRS, NOAA-20 VIIRS and NOAA-21 VIIRS in `data/raw/`. No API key or download is required to process these files.
 
     pip install -r requirements.txt
-    python run_pipeline.py --demo
-    python serve.py --demo                   # open http://localhost:8000  (exact area analysis)
-    python -m pytest -q tests
+    python run_pipeline.py
+    python serve.py                           # open http://localhost:8000 (exact area analysis)
 
 `python serve.py` serves the site AND a small local API (standard library only). Without it, `python -m http.server -d web 8000`
 still works but area selections fall back to an APPROXIMATE cell-centre mode, clearly labelled in the page.
 
-The repo ships with demo output in `web/data/` so the site opens immediately. A red banner marks it as
-SYNTHETIC. Replace it with real data before presenting.
+Run the commands from the `firepulse` project folder. The processing command reads the raw inputs without changing them, writes cleaned/quality tables under `data/clean/`, and regenerates the calendar, quality report and metadata under `web/data/`. Data and output paths are resolved relative to the project folder even if a script is launched by path from another working directory. The local server refuses to present stale synthetic output in normal mode; use `python serve.py --demo` only when intentionally demonstrating generated data.
 
-## Real data
+### Optional offline synthetic demo
 
-1. Get a free MAP_KEY from NASA FIRMS and `export FIRMS_MAP_KEY=...`.
-2. Check real coverage: `python -c "from firepulse.download import availability; import os; print(availability(os.environ['FIRMS_MAP_KEY']))"`
-3. Run: `python run_pipeline.py --download 2000-11-01 2025-10-31`
-   (resumable; raw files are cached in `data/raw/`; the MODIS 2000-2011 part is the slow bit).
-4. Serve `web/` as above. Outputs: `data/out/regional_calendar.csv`, `data/out/validation_loo.csv`, `web/data/*.json`.
-5. Point-level CSV for a box: `python export_hotspots.py 79.8 6.5 80.6 7.5 2020-01-01 2020-12-31 my.csv`
+    python run_pipeline.py --demo
+    python serve.py --demo
 
-NOT YET TESTED against the live FIRMS API (written without network access). Run a one-week download first.
-Confirm: source names, CSV columns (`type`, `confidence`, `acq_date`), and the filter thresholds in `firepulse/config.py`.
+Demo output is synthetic and illustrative only. It must not be presented as NASA observations.
+
+## Data quality and filter sensitivity (new)
+
+Raw records are never changed. Invalid records are removed and counted; everything else is **flagged in a separate table**
+and an optional **profile** decides what enters the analysis. The page has a section that shows what was removed, flagged
+and kept, and how each profile changes the monthly calendar, the VIIRS/MODIS ratio and the anomalies for the area you draw.
+Details, thresholds and what was and was not verified against NASA documentation: `docs/data_quality.md`.
+
+    python run_pipeline.py --profile all_valid     # choose the profile behind the calendar (default: baseline)
+    python serve.py                            # quality section: scroll down; API: POST /api/quality
+
+## Updating the NASA FIRMS inputs
+
+The supplied source folders use FIRMS SP-style columns and chunk-window filenames. To refresh or extend them, get a free MAP_KEY from NASA FIRMS, set `FIRMS_MAP_KEY` in your shell (never store it in the repository), and run:
+
+    python run_pipeline.py --fetch-availability
+    python run_pipeline.py --download 2000-11-01 2026-07-31
+
+Downloads are resumable and cached under `data/raw/`. After adding or downloading inputs, run `python run_pipeline.py` to regenerate the analysis. Outputs include `data/out/regional_calendar.csv`, `data/out/validation_loo.csv`, and `web/data/*.json`.
+
+Point-level CSV for a box: `python export_hotspots.py 79.8 6.5 80.6 7.5 2020-01-01 2020-12-31 my.csv`
+
+The included raw files were inspected for source folders, FIRMS headers, valid chunk-window CSVs and empty (zero-detection) replies; they have not been independently revalidated against live FIRMS or official attribute tables. Filter thresholds and type handling remain configurable project assumptions in `firepulse/config.py`.
 
 ## Method
 
 | Step | What | Where |
 |---|---|---|
-| Filter | MODIS confidence >= 30 (assumption), VIIRS nominal/high, type 0 (vegetation fire) if present | `clean.py` |
+| Filter | Invalid records removed; default profile: MODIS confidence >= 30, VIIRS nominal/high, type 0 (unverified assumptions; switchable) | `clean.py`, `quality.py` |
 | Aggregate | monthly counts per 0.1 degree cell and per region | `aggregate.py` |
 | Harmonize | ratio(calendar month) = median over overlap years of VIIRS/MODIS; MODIS-equivalent = VIIRS / ratio; band = ratio IQR; pooled fallback if < 5 years | `harmonize.py` |
 | Validate | leave-one-year-out: predict a year's MODIS counts from VIIRS using ratios fitted without that year | `harmonize.loo_validation` |
@@ -57,6 +75,7 @@ MODIS wherever it exists), coverage start months. For South Asia use a larger bo
 ## Deploy
 
 `web/` is a static site. GitHub Pages or Vercel: publish the `web/` folder after running the real pipeline.
+On first load, an animated satellite-awareness screen remains visible while the app loads its data and prepares the explorer; it does not simulate progress or delay the dashboard. If initialization fails, the screen reports the error and offers a retry.
 
 ## Layout
 
@@ -104,7 +123,7 @@ chart interpretation: `docs/methodology.md`; limits: `docs/limitations.md`. Synt
 - `baseline` option on `/api/area` (`all_other_years` default, or `past_only`) and a selector in the UI. Anomalies need 10 usable baseline years.
 - `sensor_intelligence.stream_join`: per VIIRS platform, compares NRT months with standard-processing months of the same calendar month and flags a level shift (see `firepulse/stream_join.py`, `docs/stage6.md`).
 - `python run_pipeline.py --fetch-availability` (needs `FIRMS_MAP_KEY`) stores the FIRMS availability reply; the platform timeline then shows FIRMS-reported first/last dates per source next to the stored NASA-page dates.
-- `EXTRA_SOURCES` now lists `VIIRS_NOAA20_SP` and `VIIRS_NOAA21_NRT`; `python run_pipeline.py --download START END` fetches them too.
+- `EXTRA_SOURCES` now lists `VIIRS_NOAA20_SP` and `VIIRS_NOAA21_SP` (standard processing only; the FIRMS availability response of 2026-11-13 listed NOAA-21 SP from 2023-03-01 — re-check with `--fetch-availability`). `python run_pipeline.py --download START END` fetches them too.
 - The cleaning report lists raw hotspot `type` codes with counts and what was excluded.
 
 ## NASA data attribution

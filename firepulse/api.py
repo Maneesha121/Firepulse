@@ -27,4 +27,11 @@ def health(ds):
 
 def handle_points(ds, payload):
     sel = selection_from_payload(payload)
-    return area.points_for_month(ds, sel, payload.get("month"))
+    return area.points_for_month(ds, sel, payload.get("month"), profile=payload.get("profile"))
+
+
+def handle_quality(ds, payload):
+    """Quality-filter sensitivity for a drawn area, or for the whole processing region when no geometry/point is sent."""
+    payload = payload if isinstance(payload, dict) else {}
+    sel = selection_from_payload(payload) if (payload.get("geometry") is not None or payload.get("point") is not None) else None
+    return area.quality_sensitivity(ds, sel, payload.get("start"), payload.get("end"), payload.get("baseline"), payload.get("profiles"))

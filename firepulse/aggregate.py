@@ -13,8 +13,17 @@ def last_full_month(max_date):
 
 
 def availability(dfs):
-    """{sensor: (first_period, last_period)}; the last (possibly partial) month is dropped."""
-    return {k: (pd.Period(START[k], "M"), last_full_month(df["date"].max())) for k, df in dfs.items()}
+    """{sensor: (first_period, last_period)}, including fully covered months with no detections."""
+    result = {}
+    for key, df in dfs.items():
+        last = last_full_month(df["date"].max())
+        covered, _ = coverage.family_coverage(folders_for(key))
+        if len(covered):
+            full_months = covered.iloc[(covered.to_numpy() >= covered.index.days_in_month)]
+            if len(full_months):
+                last = max(last, full_months.index.max())
+        result[key] = (pd.Period(START[key], "M"), last)
+    return result
 
 
 def cell_monthly(dfs, avail):

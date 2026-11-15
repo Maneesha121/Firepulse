@@ -5,8 +5,8 @@ grid-cell centres. Months whose data status is not OBSERVED_* are unknown (null)
 """
 import json
 import numpy as np, pandas as pd
-from . import spatial, harmonize, anomaly, coverage, sensor_transition, stream_join
-from .config import CLEAN, WEB_DATA, MIN_BASELINE, MIN_YEARS
+from . import spatial, harmonize, anomaly, coverage, sensor_transition, stream_join, quality, sensitivity
+from .config import CLEAN, WEB_DATA, MIN_BASELINE, MIN_YEARS, QUALITY_PROFILES
 
 PLATFORM_COLS = ["TERRA", "AQUA", "SNPP", "NOAA20", "NOAA21", "UNKNOWN"]
 MIN_AREA_RATIO_MONTHS = 36          # usable overlap months needed before an area-specific ratio replaces the regional one
@@ -48,12 +48,67 @@ class Dataset:
         span = self.points.groupby("platform")["month"].agg(["min", "max"])
         self.platform_span = {p: (pd.Period(r["min"], "M"), pd.Period(r["max"], "M")) for p, r in span.iterrows()}
         self._region_series = None
+        self.active_profile = self.meta.get("active_profile") or "baseline"
+        self.evidence_by_month = self.meta.get("evidence_by_month")
+        self._load_quality(clean_dir)
 
-    def region_series(self):
+    def _load_quality(self, clean_dir):
+        """Optional quality layer: every valid observation + its flags (separate tables, joined on rec_id). Absent = no sensitivity view."""
+        self.q_points, self.quality_error, self._keep, self._reg_by_profile = None, None, {}, {}
+        vdir, qdir = clean_dir / "all_valid", clean_dir / "quality"
+        vs, fs = (sorted(vdir.glob("*.csv.gz")) if vdir.exists() else []), (sorted(qdir.glob("*_flags.csv.gz")) if qdir.exists() else [])
+        if not vs or not fs:
+            return
+        allv = pd.concat([pd.read_csv(f, parse_dates=["date"]) for f in vs], ignore_index=True)
+        fl = pd.concat([pd.read_csv(f) for f in fs], ignore_index=True)
+        if set(allv["data_origin"].unique()) != {self.origin}:
+            raise AreaError("data/clean/all_valid comes from a different run (or mixes synthetic and NASA data). Re-run python run_pipeline.py.")
+        if allv["rec_id"].duplicated().any() or fl["rec_id"].duplicated().any():
+            self.quality_error = "Quality tables have duplicate record ids; re-run python run_pipeline.py."
+            return
+        q = allv.merge(fl, on="rec_id", how="left", validate="one_to_one")
+        if q["flag_isolated"].isna().any():
+            self.quality_error = "Some observations have no quality flags (files from different runs); re-run python run_pipeline.py."
+            return
+        for c in [c for c in q.columns if c.startswith("flag_")] + ["type_in_source", "isolation_assessed"]:
+            q[c] = q[c].astype(bool)
+        self.q_points = q
+        self._qlat, self._qlon = q["lat"].to_numpy(), q["lon"].to_numpy()
+        pid = self.active_profile if self.active_profile in QUALITY_PROFILES else "baseline"
+        if int(self.profile_keep(pid).sum()) != len(self.points):
+            self.q_points = None
+            self.quality_error = ("The quality layer does not match the cleaned detections (different run or profile). "
+                                  "Re-run python run_pipeline.py.")
+
+    def profile_keep(self, pid):
+        """Boolean mask over q_points: records that enter the analysis under profile ``pid`` (cached)."""
+        if pid not in QUALITY_PROFILES:
+            raise AreaError(f"unknown quality profile '{pid}'; choose one of {sorted(QUALITY_PROFILES)}")
+        if pid not in self._keep:
+            self._keep[pid] = quality.profile_mask(self.q_points, self.q_points, QUALITY_PROFILES[pid])
+        return self._keep[pid]
+
+    def mask_q(self, sel):
+        return spatial.points_in_selection(self._qlat, self._qlon, sel)
+
+    def region_series(self, pid=None):
         """Monthly series for the whole processing region (cached). Used to validate the regional-ratio fallback."""
+        if pid is not None and pid != self.active_profile and self.q_points is not None:
+            if pid not in self._reg_by_profile:
+                self._reg_by_profile[pid] = _series_from_points(self, self.q_points[self.profile_keep(pid)])
+            return self._reg_by_profile[pid]
         if self._region_series is None:
             self._region_series = _series_from_points(self, self.points)
         return self._region_series
+
+    def region_tables_for(self, pid):
+        """Region-wide ratio tables for a profile (the pipeline's own tables for the active profile); None if no usable overlap."""
+        if pid == self.active_profile:
+            return self.region_tables
+        try:
+            return harmonize.ratio_tables(self.region_series(pid)[["modis", "viirs"]])
+        except ValueError:
+            return None
 
     def mask(self, sel):
         return spatial.points_in_selection(self._lat, self._lon, sel)
@@ -111,6 +166,38 @@ def _choose_tables(ds, base):
     except ValueError:
         pass
     return ds.region_tables, "REGION (selection has too few usable overlap months; regional ratio applied, treat as low reliability)"
+
+
+def _tables_for_profile(ds, base, pid):
+    """Same rule as _choose_tables (area ratio if enough usable overlap months, else regional), per quality profile."""
+    try:
+        t = harmonize.ratio_tables(base[["modis", "viirs"]])
+        if t["global"]["n"] >= MIN_AREA_RATIO_MONTHS:
+            return t, f"AREA ({t['global']['n']} usable overlap months inside the selection)"
+    except ValueError:
+        pass
+    t = ds.region_tables_for(pid)
+    if t is None:
+        return None, "no usable overlap months in the selection or the region"
+    return t, "REGION (selection has too few usable overlap months; regional ratio applied, treat as low reliability)"
+
+
+def quality_sensitivity(ds, sel=None, start=None, end=None, baseline="all_other_years", profiles=None):
+    """Calendar / ratio / anomaly sensitivity to the quality-filter profile for a selection (None = whole region)."""
+    if baseline is None:
+        baseline = "all_other_years"
+    if baseline not in BASELINES:
+        raise AreaError(f"baseline must be one of {sorted(BASELINES)}.")
+    a, b = _month_range(ds, start, end)
+    prof = None
+    if profiles:
+        bad = [p for p in profiles if p not in QUALITY_PROFILES]
+        if bad:
+            raise AreaError(f"unknown quality profile(s) {bad}; choose from {sorted(QUALITY_PROFILES)}.")
+        prof = {p: QUALITY_PROFILES[p] for p in profiles}
+        act = ds.active_profile if ds.active_profile in QUALITY_PROFILES else "baseline"
+        prof.setdefault(act, QUALITY_PROFILES[act])
+    return sensitivity.analyze(ds, sel, a, b, baseline, series_fn=_series_from_points, tables_fn=_tables_for_profile, profiles=prof)
 
 
 BASELINES = {"all_other_years": "same calendar month, all other years in the processed record (past and future)",
@@ -287,22 +374,43 @@ def _records(df):
     return recs
 
 
-def points_for_month(ds, sel, month, limit=5000):
-    """Real detections inside the selection for one month, as GeoJSON points (deterministic stride sample if > limit)."""
+def points_for_month(ds, sel, month, limit=5000, profile=None):
+    """Real detections inside the selection for one month, as GeoJSON points (deterministic stride sample if > limit).
+
+    ``profile`` (a quality profile id, e.g. 'all_valid') shows the records that profile would keep, with their quality flags.
+    Default: the records of the active profile (what the calendar counts). Original confidence/FRP are returned unchanged.
+    """
     try:
         per = pd.Period(month, "M")
     except Exception:
         raise AreaError("Month must look like 2015-01.")
     if per < ds.months[0] or per > ds.months[-1]:
         raise AreaError(f"Month is outside the processed record ({ds.months[0]} to {ds.months[-1]}).")
-    pts = ds.points[(ds.points["month"] == str(per)).to_numpy() & ds.mask(sel)].sort_values(["date", "lat", "lon"])
+    pid = profile or ds.active_profile
+    flag_names = [k for k in quality.FLAG_INFO]
+    if ds.q_points is not None:
+        if pid not in QUALITY_PROFILES:
+            raise AreaError(f"unknown quality profile '{pid}'; choose one of {sorted(QUALITY_PROFILES)}.")
+        q = ds.q_points
+        act = ds.profile_keep(ds.active_profile if ds.active_profile in QUALITY_PROFILES else "baseline")
+        m = (q["month"] == str(per)).to_numpy() & ds.mask_q(sel) & ds.profile_keep(pid)
+        pts = q[m].assign(in_active=act[m]).sort_values(["date", "lat", "lon"])
+    else:
+        if profile and profile != ds.active_profile:
+            raise AreaError("Quality profiles need the quality layer: re-run python run_pipeline.py.")
+        pts = ds.points[(ds.points["month"] == str(per)).to_numpy() & ds.mask(sel)].sort_values(["date", "lat", "lon"])
     total = len(pts)
     stride = max(1, -(-total // limit))
     pts = pts.iloc[::stride]
-    feats = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [float(r.lon), float(r.lat)]},
-              "properties": {"date": str(r.date.date()), "platform": r.platform, "sensor": r.sensor,
-                             "frp": None if pd.isna(r.frp) else float(r.frp), "daynight": r.daynight,
-                             "confidence": r.confidence_raw}} for r in pts.itertuples()]
+    feats = []
+    for r in pts.itertuples():
+        props = {"date": str(r.date.date()), "platform": r.platform, "sensor": r.sensor,
+                 "frp": None if pd.isna(r.frp) else float(r.frp), "daynight": r.daynight, "confidence": r.confidence_raw}
+        if ds.q_points is not None:
+            props.update(conf_class=r.conf_class, quality_profile=pid, in_active_profile=bool(r.in_active),
+                         flags=[k for k in flag_names if getattr(r, "flag_" + k)])
+        feats.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [float(r.lon), float(r.lat)]}, "properties": props})
     return {"type": "FeatureCollection", "features": feats, "data_origin": ds.origin,
             "meta": {"month": str(per), "total_in_selection": int(total), "returned": len(feats), "sampled": stride > 1,
+                     "quality_profile": pid if ds.q_points is not None else None,
                      "note": "Individual detections (not aggregated counts)." + (f" Every {stride}th shown for display." if stride > 1 else "")}}

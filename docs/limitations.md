@@ -43,3 +43,9 @@
 Harmonisation alternatives (monthly/seasonal/quantile), anomaly classification labels
 (SENSOR_SENSITIVE / METHOD_SENSITIVE), grid-cell/anomaly/sensor map modes and time slider, grid-cell GeoJSON export, data dictionary export,
 architecture/evaluation/research-evidence docs, observation-level Aqua/SNPP matching check, second region run, CI.
+
+## Data-quality limits (see docs/data_quality.md)
+- Quality flags and profiles are engineering choices, tested on synthetic data only; real NASA data has not been processed with them.
+- High FRP is flagged statistically, not treated as an error. Isolated detections are flagged, not removed by any default profile.
+- Duplicate detection has no official record identifier; a suspected duplicate may be a genuine repeat observation.
+- The numeric MODIS confidence class limits (30/80) were not re-read in the user guide here.

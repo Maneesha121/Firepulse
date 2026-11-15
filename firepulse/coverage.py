@@ -54,21 +54,19 @@ def covered_days_by_month(windows):
 
 
 def family_coverage(folders):
-    """Conservative coverage for a sensor family: days covered by EVERY folder that has evidence."""
+    """Coverage of a sensor family: days covered by at least one source stream with evidence.
+
+    A family can provide observations through multiple platforms with different mission periods. Requiring every
+    platform folder to cover the same day incorrectly marks the family's earlier and later records as unobserved.
+    Platform-specific coverage remains available through source_summary().
+    """
     per = [folder_windows(f) for f in folders]
     per = [(w, e) for w, e in per if w]
     if not per:
         return pd.Series(dtype=int), "NONE"
-    sets = []
-    for w, _ in per:
-        d = set()
-        for a, b in w:
-            d.update(a + dt.timedelta(days=i) for i in range((b - a).days + 1))
-        sets.append(d)
-    common = set.intersection(*sets)
-    s = pd.Series(1, index=pd.PeriodIndex(pd.to_datetime(sorted(common)), freq="M")) if common else pd.Series(dtype=int)
+    windows = [window for source_windows, _ in per for window in source_windows]
     ev = "DOWNLOAD_WINDOWS" if any(e == "DOWNLOAD_WINDOWS" for _, e in per) else "DECLARED"
-    return (s.groupby(level=0).sum() if len(s) else s), ev
+    return covered_days_by_month(windows), ev
 
 
 def month_status(index, counts, covered, evidence, start_period):

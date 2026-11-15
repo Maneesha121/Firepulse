@@ -26,6 +26,7 @@ let fails = 0;
 const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fails++; };
 window.addEventListener("error", (e) => { console.log("PAGE ERROR", e.message); fails++; });
 await sleep(1500);
+ok(!$("loadingScreen") && !$("app-shell").hasAttribute("aria-hidden") && !$("app-shell").hasAttribute("inert"), "startup overlay clears and enables the dashboard after initialization");
 ok($("cal").querySelectorAll("td.cell").length > 100, "calendar rendered with month cells (whole region)");
 ok($("modeChip").textContent.includes("Whole region"), "mode chip: whole region");
 ok(/SYNTHETIC/.test($("originChip").textContent) === (window.document.getElementById("demo").style.display === "block"), "origin chip agrees with banner");

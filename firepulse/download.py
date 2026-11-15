@@ -16,7 +16,7 @@ def _get(url, tries=4):
         except requests.RequestException as e:
             print("request error:", e)
         time.sleep(5 * (i + 1))
-    raise RuntimeError("giving up: " + url)
+    raise RuntimeError("giving up after retries; request URL omitted to protect API key")
 
 
 def availability(key):
