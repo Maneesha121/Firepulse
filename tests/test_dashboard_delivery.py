@@ -1,17 +1,21 @@
-"""Tests for the server-delivered dashboard enhancements and data preflight."""
+"""Tests for route delivery and provenance preflight."""
 import gzip
 
-from serve import _enhance_dashboard
+from serve import DASHBOARD_ROUTES, _enhance_dashboard
 from validate_submission import _check_origin_file
 
 
-def test_dashboard_enhancement_adds_navigation_styles_and_missing_status_node():
+def test_dashboard_enhancement_loads_styles_script_and_baseline_status_node():
     source = '<html><head></head><body><header><h1>FirePulse</h1></header><div id="peaks"></div></body></html>'
     result = _enhance_dashboard(source)
     assert 'href="/dashboard-enhancements.css"' in result
-    assert 'href="#cal"' in result
+    assert 'src="/dashboard-enhancements.js"' in result
     assert 'id="baseNote"' in result
     assert _enhance_dashboard(result) == result
+
+
+def test_dashboard_routes_are_all_served_by_the_app():
+    assert DASHBOARD_ROUTES == {'/', '/index.html', '/overview', '/map', '/calendar', '/trends', '/advanced', '/about'}
 
 
 def test_preflight_rejects_empty_cleaned_output(tmp_path):
