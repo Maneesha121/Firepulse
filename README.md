@@ -216,7 +216,11 @@ FirePulse is an independent project and is not an official NASA application.
 - Seasonal anomaly scores are exploratory analytical outputs, not predictions of future fires.
 - The application does not replace official fire monitoring, emergency-response systems, or ground verification.
 
+## AI-Assisted Development Disclosure
 
+GitHub Copilot and ChatGPT were used to assist with selected coding, debugging, troubleshooting, and documentation tasks during FirePulse development.
+
+The project creator reviewed and adapted AI-assisted suggestions and made the implementation decisions. NASA FIRMS satellite observations remain the source of the underlying MODIS and VIIRS data.
 
 ## Built For
 
