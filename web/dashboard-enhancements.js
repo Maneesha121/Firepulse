@@ -9,100 +9,119 @@
     { path: '/advanced', label: 'Advanced Analytics', id: 'fp-advanced' },
     { path: '/about', label: 'About & Methodology', id: 'fp-about' },
   ];
-
   const $ = (id) => document.getElementById(id);
-  const routeFromLocation = () => {
-    const loc = window.location.pathname.replace(/\/$/, '');
-    if (loc === '' || loc === '/index.html' || loc === '/') return '/overview';
-    return ROUTES.some((r) => r.path === loc) ? loc : '/overview';
-  };
+  let currentPath = null;
+
+  function routeFromLocation() {
+    const path = window.location.pathname.replace(/\/$/, '') || '/';
+    if (path === '/' || path === '/index.html') return '/overview';
+    return ROUTES.some((route) => route.path === path) ? path : '/overview';
+  }
 
   function ensureRouteShell() {
-    if ($('fp-nav')) return;
-    const header = document.querySelector('header');
-    const nav = document.createElement('nav');
-    nav.id = 'fp-nav';
-    nav.className = 'fp-nav';
-    nav.setAttribute('aria-label', 'FirePulse navigation');
-    ROUTES.forEach((route) => {
-      const link = document.createElement('a');
-      link.href = route.path;
-      link.dataset.fpRoute = route.path;
-      link.textContent = route.label;
-      nav.appendChild(link);
-    });
-    header.appendChild(nav);
-
     const main = document.querySelector('main');
-    if (!main) return;
+    const header = document.querySelector('#app-shell > header') || document.querySelector('header');
+    if (!main || !header) return false;
+
+    let nav = $('fp-nav');
+    if (!nav) {
+      nav = document.createElement('nav');
+      nav.id = 'fp-nav';
+      nav.className = 'fp-nav';
+      nav.setAttribute('aria-label', 'FirePulse navigation');
+      ROUTES.forEach((route) => {
+        const link = document.createElement('a');
+        link.href = route.path;
+        link.dataset.fpRoute = route.path;
+        link.textContent = route.label;
+        nav.appendChild(link);
+      });
+      header.appendChild(nav);
+    }
+
     const pages = {};
     ROUTES.forEach((route) => {
-      const page = document.createElement('section');
-      page.id = route.id;
-      page.className = 'fp-page';
-      page.hidden = true;
-      page.setAttribute('aria-label', route.label);
+      let page = $(route.id);
+      if (!page) {
+        page = document.createElement('section');
+        page.id = route.id;
+        page.className = 'fp-page';
+        page.hidden = true;
+        page.setAttribute('aria-label', route.label);
+        main.parentNode.insertBefore(page, main);
+      }
       pages[route.path] = page;
-      document.body.insertBefore(page, main);
     });
 
-    const map = $('map');
-    const aoi = $('applyBox');
-    const summary = $('summary');
-    const cal = $('cal');
-    const chart = $('chart');
-    const anom = $('anom');
-    const sensor = $('sensorSec');
-    const qual = $('qualSec');
-    const val = $('val');
-    const attribution = $('attribution');
-    const downloads = $('dlCsv');
+    // Keep original date, display, and anomaly selectors available from every route.
+    let shared = $('fp-shared-controls');
+    if (!shared) {
+      shared = document.createElement('div');
+      shared.id = 'fp-shared-controls';
+      shared.className = 'fp-shared-controls';
+      shared.setAttribute('aria-label', 'Shared date and display filters');
+      header.insertAdjacentElement('afterend', shared);
+    }
+    const controlsCard = $('y0')?.closest('.card');
+    if (controlsCard && controlsCard.parentElement !== shared) shared.appendChild(controlsCard);
+
+    const moveCard = (id, path) => {
+      const card = $(id)?.closest('.card');
+      if (card && card.parentElement !== pages[path]) pages[path].appendChild(card);
+    };
+    const moveElement = (id, path) => {
+      const element = $(id);
+      if (element && element.parentElement !== pages[path]) pages[path].appendChild(element);
+    };
+
+    // Move whole cards so their headings, controls, status messages, and event-bound
+    // descendants stay together. The original nodes/IDs are retained for inline code.
+    moveElement('map', '/map');
+    moveCard('applyBox', '/map');
+    moveCard('summary', '/overview');
+    moveCard('dlCsv', '/overview');
+    moveCard('cal', '/calendar');
+    moveCard('chart', '/trends');
+    moveCard('anom', '/trends');
 
     const overview = pages['/overview'];
-    const stats = document.createElement('div');
-    stats.id = 'fp-stats';
-    stats.className = 'fp-stats';
-    overview.appendChild(stats);
-    const blurb = document.createElement('p');
-    blurb.id = 'fp-activity-note';
-    blurb.className = 'fp-activity-note';
-    blurb.textContent = 'Loading hotspot activity…';
-    overview.appendChild(blurb);
-    if (summary) overview.appendChild(summary);
-    if (downloads) overview.appendChild(downloads);
+    if (!$('fp-stats')) {
+      const stats = document.createElement('div');
+      stats.id = 'fp-stats';
+      stats.className = 'fp-stats';
+      overview.prepend(stats);
+      const note = document.createElement('p');
+      note.id = 'fp-activity-note';
+      note.className = 'fp-activity-note';
+      note.textContent = 'Loading hotspot activity…';
+      stats.after(note);
+    }
 
-    if (map) pages['/map'].appendChild(map);
-    if (aoi) pages['/map'].appendChild(aoi);
-    if (cal) pages['/calendar'].appendChild(cal);
-    if (chart) pages['/trends'].appendChild(chart);
-    if (anom) pages['/trends'].appendChild(anom);
-
-    const wrapAdvanced = (section, title) => {
-      if (!section) return;
+    const wrapAdvanced = (id, title) => {
+      const section = $(id);
+      if (!section || section.closest('.fp-advanced-details')) return;
       const details = document.createElement('details');
       details.className = 'fp-advanced-details';
       const summary = document.createElement('summary');
       summary.textContent = title;
-      details.appendChild(summary);
-      details.appendChild(section);
+      details.append(summary, section);
       pages['/advanced'].appendChild(details);
     };
-    wrapAdvanced(sensor, 'MODIS–VIIRS comparison and validation');
-    wrapAdvanced(qual, 'Data quality and filter sensitivity');
+    wrapAdvanced('sensorSec', 'MODIS–VIIRS comparison and validation');
+    wrapAdvanced('qualSec', 'Data quality and filter sensitivity');
 
-    if (val) pages['/about'].appendChild(val);
-    if (attribution) pages['/about'].appendChild(attribution);
+    // Methodology content is a card nested inside main; preserve the entire card.
+    moveCard('val', '/about');
+    const attribution = $('attribution');
+    if (attribution && attribution.parentElement !== pages['/about']) pages['/about'].appendChild(attribution);
     main.remove();
+    return true;
   }
 
-  function setActiveNavigation(routePath) {
-    document.querySelectorAll('.fp-nav a').forEach((link) => {
-      const active = link.dataset.fpRoute === routePath;
-      if (active) {
-        link.setAttribute('aria-current', 'page');
-      } else {
-        link.removeAttribute('aria-current');
-      }
+  function setActiveNavigation(path) {
+    document.querySelectorAll('#fp-nav a[data-fp-route]').forEach((link) => {
+      if (link.dataset.fpRoute === path) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
     });
   }
 
@@ -110,30 +129,24 @@
     const root = $('fp-stats');
     if (!root || typeof S === 'undefined' || typeof META === 'undefined' || !Array.isArray(S)) return;
 
-    const range = typeof range === 'function' ? range() : [];
-    const rows = S.filter((row) => row && (!range.length || (row.y >= range[0] && row.y <= range[1])));
-    const combine = (key) => rows.reduce((sum, row) => sum + (Number.isFinite(Number(row[key])) ? Number(row[key]) : 0), 0);
-    const hRows = rows.filter((row) => row.h != null && Number.isFinite(Number(row.h)));
-    const highest = hRows.length ? hRows.reduce((best, row) => Number(row.h) > Number(best.h) ? row : best) : null;
+    // Avoid shadowing the global range() helper; that shadow caused a TDZ error.
+    const bounds = typeof range === 'function' ? range() : [];
+    const rows = S.filter((row) => row && (bounds.length < 2 || (row.y >= bounds[0] && row.y <= bounds[1])));
+    const total = (key) => rows.reduce((sum, row) => sum + (Number.isFinite(Number(row[key])) ? Number(row[key]) : 0), 0);
+    const indexed = rows.filter((row) => row.h != null && Number.isFinite(Number(row.h)));
+    const peak = indexed.length ? indexed.reduce((best, row) => Number(row.h) > Number(best.h) ? row : best) : null;
     const assessed = rows.filter((row) => row.z != null && Number.isFinite(Number(row.z)));
     const unusual = assessed.filter((row) => Math.abs(Number(row.z)) >= 2).length;
     const latest = Array.isArray(META.months) && META.months.length ? META.months[META.months.length - 1] : 'Unavailable';
-
     const cards = [
-      ['Observed detections', `${Math.round(combine('mod') + combine('vii')).toLocaleString()}`, 'Combined MODIS and VIIRS hotspot detections in the selected period.'],
-      ['Peak activity month', highest ? highest.m : 'Not available', highest ? 'Highest harmonised activity in the selected period.' : 'No index value available.'],
-      ['Historical outliers', assessed.length ? `${unusual} of ${assessed.length}` : 'Not assessed', 'Months with an atypical historical anomaly score; not a fire-danger alert.'],
+      ['Observed detections', Math.round(total('mod') + total('vii')).toLocaleString(), 'Combined MODIS and VIIRS hotspot detections in the selected period.'],
+      ['Peak activity month', peak ? peak.m : 'Not available', peak ? 'Highest harmonised activity in the selected period.' : 'No index value available.'],
+      ['Historical outliers', assessed.length ? `${unusual} of ${assessed.length}` : 'Not assessed', 'Atypical historical anomaly scores are not fire-danger alerts.'],
       ['Latest processed month', latest, 'Latest month in the processed dataset.'],
     ];
-
     root.innerHTML = cards.map(([label, value, note]) => `
-      <article class="fp-stat">
-        <span>${label}</span>
-        <strong>${value}</strong>
-        <small>${note}</small>
-      </article>
+      <article class="fp-stat"><span>${label}</span><strong>${value}</strong><small>${note}</small></article>
     `).join('');
-
     const note = $('fp-activity-note');
     if (note) {
       note.textContent = assessed.length
@@ -142,46 +155,49 @@
     }
   }
 
-  function navigate(routePath) {
-    const path = ROUTES.some((route) => route.path === routePath) ? routePath : '/overview';
+  function navigate(requestedPath, updateHistory = true) {
+    const path = ROUTES.some((route) => route.path === requestedPath) ? requestedPath : '/overview';
     ROUTES.forEach((route) => {
       const page = $(route.id);
       if (page) page.hidden = route.path !== path;
     });
     setActiveNavigation(path);
-    history.pushState({}, '', path);
+    if (updateHistory && window.location.pathname !== path) window.history.pushState({}, '', path);
+    document.title = `FirePulse — ${ROUTES.find((route) => route.path === path).label}`;
     renderOverviewStats();
-    if (path === '/map' && window.map && typeof map.invalidateSize === 'function') setTimeout(() => map.invalidateSize(), 0);
+    if (path === '/map' && window.map && typeof window.map.invalidateSize === 'function') {
+      setTimeout(() => window.map.invalidateSize(), 0);
+    }
     if (path === '/trends' || path === '/advanced') {
       setTimeout(() => {
         document.querySelectorAll('.fp-page:not([hidden]) canvas').forEach((canvas) => {
-          if (window.Chart && typeof Chart.getChart === 'function') {
-            const chartInstance = Chart.getChart(canvas);
-            if (chartInstance) chartInstance.resize();
-          }
+          const chart = window.Chart?.getChart?.(canvas);
+          if (chart) chart.resize();
         });
       }, 0);
     }
+    if (currentPath !== path) window.scrollTo(0, 0);
+    currentPath = path;
   }
 
   function bindNavigation() {
     document.addEventListener('click', (event) => {
-      const anchor = event.target.closest('a[data-fp-route]');
-      if (!anchor) return;
+      if (!(event.target instanceof Element)) return;
+      const link = event.target.closest('#fp-nav a[data-fp-route]');
+      if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
       event.preventDefault();
-      navigate(anchor.dataset.fpRoute);
+      navigate(link.dataset.fpRoute);
     });
-
-    window.addEventListener('popstate', () => navigate(routeFromLocation()));
+    window.addEventListener('popstate', () => navigate(routeFromLocation(), false));
   }
 
   function init() {
-    ensureRouteShell();
+    if (!ensureRouteShell()) return;
     bindNavigation();
-    document.querySelectorAll('.fp-nav a').forEach((link) => {
-      link.dataset.fpRoute = link.getAttribute('href');
+    ['y0', 'y1', 'mode', 'baseline', 'tY', 'tM'].forEach((id) => {
+      $(id)?.addEventListener('change', renderOverviewStats);
     });
-    navigate(routeFromLocation());
+    navigate(routeFromLocation(), false);
   }
 
   if (document.readyState === 'loading') {
