@@ -1,0 +1,32 @@
+/* FirePulse dashboard finishing styles. Loaded by serve.py so the analysis markup and behavior stay intact. */
+:root{--fp-shadow:0 10px 28px rgba(30,35,28,.07);--fp-radius:14px}
+html{scroll-behavior:smooth;scroll-padding-top:76px}
+body{font-size:15px;line-height:1.55}
+header{position:sticky;top:0;z-index:900;background:var(--card);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px clamp(14px,3vw,34px);box-shadow:0 1px 8px rgba(0,0,0,.06)}
+header h1{font-size:1.35rem;letter-spacing:-.03em}
+header .sub{max-width:62ch}
+.fp-nav{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.fp-nav a{color:var(--fg);text-decoration:none;font-size:.78rem;font-weight:650;padding:7px 10px;border:1px solid var(--bd);border-radius:999px;white-space:nowrap}
+.fp-nav a:hover,.fp-nav a:focus-visible{border-color:var(--ac);color:var(--ac);outline:none}
+main{max-width:1500px;gap:18px;padding:clamp(12px,2vw,24px)}
+.card{border-radius:var(--fp-radius);padding:clamp(13px,1.5vw,20px);box-shadow:var(--fp-shadow);margin-bottom:16px}
+.card h2,.sensor h2.sh{font-size:1.08rem;letter-spacing:-.015em}
+#map{height:clamp(340px,52vh,600px);border-radius:12px}
+button,select,input{min-height:36px;padding:6px 10px}
+button{font-weight:600;transition:background-color .15s ease,border-color .15s ease}
+button:hover{border-color:var(--ac)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+button.p{font-weight:700}
+#cal{padding-bottom:4px}
+#cal table{width:100%;font-size:.8rem}
+#cal th,#cal td{min-width:36px;padding:5px 6px}
+#cal td.cell:hover{outline:2px solid var(--ac);outline-offset:-2px}
+#summary p{margin:.45em 0}
+.sensor{max-width:1500px;padding-inline:clamp(12px,2vw,24px)}
+.sensor>.card,.sensor .card{border-radius:var(--fp-radius);box-shadow:var(--fp-shadow)}
+.sgrid{gap:16px}
+.note{line-height:1.5}
+[role=alert]:not(:empty){display:block;padding:8px 10px;margin-top:8px;border-radius:8px;background:color-mix(in srgb,#b00020 8%,var(--card))}
+@media(max-width:900px){header{position:static;align-items:flex-start;flex-direction:column;gap:8px}.fp-nav{justify-content:flex-start}main{grid-template-columns:1fr}.sensor{padding-bottom:20px}}
+@media(max-width:560px){body{font-size:14px}.fp-nav{gap:4px}.fp-nav a{font-size:.72rem;padding:6px 8px}#map{height:55vh;min-height:320px}#cal table{font-size:.68rem}#cal th,#cal td{min-width:27px;padding:4px 2px}.card{padding:12px}.ch{height:260px}.ch.tall{height:300px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}button{transition:none}}
