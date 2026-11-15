@@ -1,0 +1,968 @@
+{
+ "flags": {
+  "modis": {
+   "null_island": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "acq_time_invalid": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "future_date": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "dup_key_conflict": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "dup_cross_source": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "dup_cross_source_later": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "near_duplicate": {
+    "n": 22,
+    "share_pct": 0.075,
+    "by_platform": {
+     "AQUA": 22
+    }
+   },
+   "near_duplicate_later": {
+    "n": 11,
+    "share_pct": 0.038,
+    "by_platform": {
+     "AQUA": 11
+    }
+   },
+   "frp_missing": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "frp_negative": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "frp_zero": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "frp_extreme_high": {
+    "n": 22,
+    "share_pct": 0.075,
+    "by_platform": {
+     "AQUA": 20,
+     "TERRA": 2
+    }
+   },
+   "frp_extreme_uncorroborated": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "conf_low": {
+    "n": 1843,
+    "share_pct": 6.295,
+    "by_platform": {
+     "AQUA": 1136,
+     "TERRA": 707
+    }
+   },
+   "conf_invalid": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "viirs_low_night_outside_documented_area": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "daynight_invalid": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "daynight_time_mismatch": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "type_not_vegetation": {
+    "n": 624,
+    "share_pct": 2.131,
+    "by_platform": {
+     "AQUA": 268,
+     "TERRA": 356
+    }
+   },
+   "type_undocumented": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "large_pixel": {
+    "n": 4448,
+    "share_pct": 15.193,
+    "by_platform": {
+     "AQUA": 3287,
+     "TERRA": 1161
+    }
+   },
+   "isolated": {
+    "n": 8308,
+    "share_pct": 28.378,
+    "by_platform": {
+     "AQUA": 5480,
+     "TERRA": 2828
+    }
+   }
+  },
+  "viirs": {
+   "null_island": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "acq_time_invalid": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "future_date": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "dup_key_conflict": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "dup_cross_source": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "dup_cross_source_later": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "near_duplicate": {
+    "n": 7026,
+    "share_pct": 4.056,
+    "by_platform": {
+     "NOAA20": 1858,
+     "NOAA21": 808,
+     "SNPP": 4360
+    }
+   },
+   "near_duplicate_later": {
+    "n": 3513,
+    "share_pct": 2.028,
+    "by_platform": {
+     "NOAA20": 929,
+     "NOAA21": 404,
+     "SNPP": 2180
+    }
+   },
+   "frp_missing": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "frp_negative": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "frp_zero": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "frp_extreme_high": {
+    "n": 228,
+    "share_pct": 0.132,
+    "by_platform": {
+     "NOAA20": 48,
+     "NOAA21": 30,
+     "SNPP": 150
+    }
+   },
+   "frp_extreme_uncorroborated": {
+    "n": 3,
+    "share_pct": 0.002,
+    "by_platform": {
+     "NOAA20": 1,
+     "SNPP": 2
+    }
+   },
+   "conf_low": {
+    "n": 20529,
+    "share_pct": 11.852,
+    "by_platform": {
+     "NOAA20": 6377,
+     "NOAA21": 2330,
+     "SNPP": 11822
+    }
+   },
+   "conf_invalid": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "viirs_low_night_outside_documented_area": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "daynight_invalid": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "daynight_time_mismatch": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "type_not_vegetation": {
+    "n": 1527,
+    "share_pct": 0.882,
+    "by_platform": {
+     "NOAA20": 373,
+     "NOAA21": 161,
+     "SNPP": 993
+    }
+   },
+   "type_undocumented": {
+    "n": 0,
+    "share_pct": 0.0,
+    "by_platform": {}
+   },
+   "large_pixel": {
+    "n": 5608,
+    "share_pct": 3.238,
+    "by_platform": {
+     "NOAA20": 1405,
+     "NOAA21": 735,
+     "SNPP": 3468
+    }
+   },
+   "isolated": {
+    "n": 28439,
+    "share_pct": 16.419,
+    "by_platform": {
+     "NOAA20": 8025,
+     "NOAA21": 2604,
+     "SNPP": 17810
+    }
+   }
+  }
+ },
+ "confidence_classes": {
+  "modis": {
+   "AQUA": {
+    "nominal": 16017,
+    "high": 4206,
+    "low": 1136
+   },
+   "TERRA": {
+    "nominal": 6293,
+    "high": 917,
+    "low": 707
+   }
+  },
+  "viirs": {
+   "NOAA20": {
+    "nominal": 43113,
+    "low": 6377,
+    "high": 604
+   },
+   "NOAA21": {
+    "nominal": 17410,
+    "low": 2330,
+    "high": 286
+   },
+   "SNPP": {
+    "nominal": 89528,
+    "low": 11822,
+    "high": 1739
+   }
+  }
+ },
+ "day_night": {
+  "modis": {
+   "AQUA": {
+    "D": 21020,
+    "N": 339
+   },
+   "TERRA": {
+    "D": 6938,
+    "N": 979
+   }
+  },
+  "viirs": {
+   "NOAA20": {
+    "D": 45707,
+    "N": 4387
+   },
+   "NOAA21": {
+    "D": 17993,
+    "N": 2033
+   },
+   "SNPP": {
+    "D": 94414,
+    "N": 8675
+   }
+  }
+ },
+ "frp": {
+  "modis": {
+   "AQUA": {
+    "n_records": 21359,
+    "n_positive": 21359,
+    "median": 15.5,
+    "p99": 169.14199999999983,
+    "p99_9": 493.3483999999982,
+    "max": 1337.1,
+    "extreme_threshold": 505.21138584469963,
+    "n_extreme_high": 20
+   },
+   "TERRA": {
+    "n_records": 7917,
+    "n_positive": 7917,
+    "median": 12.0,
+    "p99": 75.53600000000006,
+    "p99_9": 166.495599999999,
+    "max": 840.2,
+    "extreme_threshold": 242.40733077132444,
+    "n_extreme_high": 2
+   }
+  },
+  "viirs": {
+   "NOAA20": {
+    "n_records": 50094,
+    "n_positive": 50094,
+    "median": 4.4,
+    "p99": 29.330699999999997,
+    "p99_9": 92.36720999999999,
+    "max": 1204.5,
+    "extreme_threshold": 93.99718384308761,
+    "n_extreme_high": 48
+   },
+   "NOAA21": {
+    "n_records": 20026,
+    "n_positive": 20026,
+    "median": 5.14,
+    "p99": 34.4525,
+    "p99_9": 128.39149999999833,
+    "max": 576.31,
+    "extreme_threshold": 107.89145217476101,
+    "n_extreme_high": 30
+   },
+   "SNPP": {
+    "n_records": 103089,
+    "n_positive": 103089,
+    "median": 4.47,
+    "p99": 38.33119999999995,
+    "p99_9": 115.69991999999272,
+    "max": 395.36,
+    "extreme_threshold": 101.32051644029383,
+    "n_extreme_high": 150
+   }
+  }
+ },
+ "platform_summary": [
+  {
+   "sensor": "modis",
+   "platform": "AQUA",
+   "records": 21359,
+   "conf_low_pct": 5.32,
+   "night_pct": 1.59,
+   "frp_median": 15.5,
+   "near_duplicate_pct": 0.103,
+   "isolated_pct": 25.657,
+   "frp_extreme_high_pct": 0.094
+  },
+  {
+   "sensor": "modis",
+   "platform": "TERRA",
+   "records": 7917,
+   "conf_low_pct": 8.93,
+   "night_pct": 12.37,
+   "frp_median": 12.0,
+   "near_duplicate_pct": 0.0,
+   "isolated_pct": 35.721,
+   "frp_extreme_high_pct": 0.025
+  },
+  {
+   "sensor": "viirs",
+   "platform": "NOAA20",
+   "records": 50094,
+   "conf_low_pct": 12.73,
+   "night_pct": 8.76,
+   "frp_median": 4.4,
+   "near_duplicate_pct": 3.709,
+   "isolated_pct": 16.02,
+   "frp_extreme_high_pct": 0.096
+  },
+  {
+   "sensor": "viirs",
+   "platform": "NOAA21",
+   "records": 20026,
+   "conf_low_pct": 11.63,
+   "night_pct": 10.15,
+   "frp_median": 5.14,
+   "near_duplicate_pct": 4.035,
+   "isolated_pct": 13.003,
+   "frp_extreme_high_pct": 0.15
+  },
+  {
+   "sensor": "viirs",
+   "platform": "SNPP",
+   "records": 103089,
+   "conf_low_pct": 11.47,
+   "night_pct": 8.42,
+   "frp_median": 4.47,
+   "near_duplicate_pct": 4.229,
+   "isolated_pct": 17.276,
+   "frp_extreme_high_pct": 0.146
+  }
+ ],
+ "profiles": {
+  "baseline": {
+   "label": "Project default",
+   "description": "Type 0 only (unverified project assumption), MODIS confidence >= 30, VIIRS nominal/high. Same rules as earlier FirePulse versions.",
+   "exploratory": false,
+   "active": true,
+   "sensors": {
+    "modis": {
+     "valid_records": 29276,
+     "retained": 26912,
+     "excluded": 2364,
+     "rules": [
+      {
+       "rule": "type_filter",
+       "description": "keep FIRMS type in [0] (where the source has a type column)",
+       "records_failing_rule": 624,
+       "removed_in_sequence": 624
+      },
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+       "records_failing_rule": 1843,
+       "removed_in_sequence": 1740
+      }
+     ],
+     "by_platform_retained": {
+      "AQUA": 20002,
+      "TERRA": 6910
+     }
+    },
+    "viirs": {
+     "valid_records": 173209,
+     "retained": 151185,
+     "excluded": 22024,
+     "rules": [
+      {
+       "rule": "type_filter",
+       "description": "keep FIRMS type in [0] (where the source has a type column)",
+       "records_failing_rule": 1527,
+       "removed_in_sequence": 1527
+      },
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+       "records_failing_rule": 20529,
+       "removed_in_sequence": 20497
+      }
+     ],
+     "by_platform_retained": {
+      "NOAA20": 43354,
+      "NOAA21": 17539,
+      "SNPP": 90292
+     }
+    }
+   }
+  },
+  "all_valid": {
+   "label": "All valid records",
+   "description": "No analytical filter: every record with valid coordinates and date.",
+   "exploratory": false,
+   "active": false,
+   "sensors": {
+    "modis": {
+     "valid_records": 29276,
+     "retained": 29276,
+     "excluded": 0,
+     "rules": [],
+     "by_platform_retained": {
+      "AQUA": 21359,
+      "TERRA": 7917
+     }
+    },
+    "viirs": {
+     "valid_records": 173209,
+     "retained": 173209,
+     "excluded": 0,
+     "rules": [],
+     "by_platform_retained": {
+      "NOAA20": 50094,
+      "NOAA21": 20026,
+      "SNPP": 103089
+     }
+    }
+   }
+  },
+  "no_type_filter": {
+   "label": "Default without type rule",
+   "description": "Project default confidence rules but the FIRMS type code is not used. Isolates the effect of the type assumption.",
+   "exploratory": false,
+   "active": false,
+   "sensors": {
+    "modis": {
+     "valid_records": 29276,
+     "retained": 27433,
+     "excluded": 1843,
+     "rules": [
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+       "records_failing_rule": 1843,
+       "removed_in_sequence": 1843
+      }
+     ],
+     "by_platform_retained": {
+      "AQUA": 20223,
+      "TERRA": 7210
+     }
+    },
+    "viirs": {
+     "valid_records": 173209,
+     "retained": 152680,
+     "excluded": 20529,
+     "rules": [
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+       "records_failing_rule": 20529,
+       "removed_in_sequence": 20529
+      }
+     ],
+     "by_platform_retained": {
+      "NOAA20": 43717,
+      "NOAA21": 17696,
+      "SNPP": 91267
+     }
+    }
+   }
+  },
+  "high_confidence": {
+   "label": "High confidence only",
+   "description": "MODIS high-confidence class and VIIRS 'h' only (stricter than the default).",
+   "exploratory": false,
+   "active": false,
+   "sensors": {
+    "modis": {
+     "valid_records": 29276,
+     "retained": 5119,
+     "excluded": 24157,
+     "rules": [
+      {
+       "rule": "type_filter",
+       "description": "keep FIRMS type in [0] (where the source has a type column)",
+       "records_failing_rule": 624,
+       "removed_in_sequence": 624
+      },
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 80; VIIRS confidence in ['h', 'high']",
+       "records_failing_rule": 24153,
+       "removed_in_sequence": 23533
+      }
+     ],
+     "by_platform_retained": {
+      "AQUA": 4203,
+      "TERRA": 916
+     }
+    },
+    "viirs": {
+     "valid_records": 173209,
+     "retained": 2614,
+     "excluded": 170595,
+     "rules": [
+      {
+       "rule": "type_filter",
+       "description": "keep FIRMS type in [0] (where the source has a type column)",
+       "records_failing_rule": 1527,
+       "removed_in_sequence": 1527
+      },
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 80; VIIRS confidence in ['h', 'high']",
+       "records_failing_rule": 170580,
+       "removed_in_sequence": 169068
+      }
+     ],
+     "by_platform_retained": {
+      "NOAA20": 600,
+      "NOAA21": 281,
+      "SNPP": 1733
+     }
+    }
+   }
+  },
+  "default_no_duplicates": {
+   "label": "Default minus near-duplicates",
+   "description": "Default rules, and within each suspicious near-duplicate group only the first record is kept.",
+   "exploratory": false,
+   "active": false,
+   "sensors": {
+    "modis": {
+     "valid_records": 29276,
+     "retained": 26902,
+     "excluded": 2374,
+     "rules": [
+      {
+       "rule": "type_filter",
+       "description": "keep FIRMS type in [0] (where the source has a type column)",
+       "records_failing_rule": 624,
+       "removed_in_sequence": 624
+      },
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+       "records_failing_rule": 1843,
+       "removed_in_sequence": 1740
+      },
+      {
+       "rule": "flag_near_duplicate_later",
+       "description": "exclude records flagged 'near_duplicate_later'",
+       "records_failing_rule": 11,
+       "removed_in_sequence": 10
+      },
+      {
+       "rule": "flag_dup_cross_source_later",
+       "description": "exclude records flagged 'dup_cross_source_later'",
+       "records_failing_rule": 0,
+       "removed_in_sequence": 0
+      }
+     ],
+     "by_platform_retained": {
+      "AQUA": 19992,
+      "TERRA": 6910
+     }
+    },
+    "viirs": {
+     "valid_records": 173209,
+     "retained": 147961,
+     "excluded": 25248,
+     "rules": [
+      {
+       "rule": "type_filter",
+       "description": "keep FIRMS type in [0] (where the source has a type column)",
+       "records_failing_rule": 1527,
+       "removed_in_sequence": 1527
+      },
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+       "records_failing_rule": 20529,
+       "removed_in_sequence": 20497
+      },
+      {
+       "rule": "flag_near_duplicate_later",
+       "description": "exclude records flagged 'near_duplicate_later'",
+       "records_failing_rule": 3513,
+       "removed_in_sequence": 3224
+      },
+      {
+       "rule": "flag_dup_cross_source_later",
+       "description": "exclude records flagged 'dup_cross_source_later'",
+       "records_failing_rule": 0,
+       "removed_in_sequence": 0
+      }
+     ],
+     "by_platform_retained": {
+      "NOAA20": 42493,
+      "NOAA21": 17163,
+      "SNPP": 88305
+     }
+    }
+   }
+  },
+  "default_valid_frp": {
+   "label": "Default with valid FRP",
+   "description": "Default rules, and records whose FRP is missing or negative are excluded. High FRP values are NOT excluded.",
+   "exploratory": false,
+   "active": false,
+   "sensors": {
+    "modis": {
+     "valid_records": 29276,
+     "retained": 26912,
+     "excluded": 2364,
+     "rules": [
+      {
+       "rule": "type_filter",
+       "description": "keep FIRMS type in [0] (where the source has a type column)",
+       "records_failing_rule": 624,
+       "removed_in_sequence": 624
+      },
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+       "records_failing_rule": 1843,
+       "removed_in_sequence": 1740
+      },
+      {
+       "rule": "flag_frp_missing",
+       "description": "exclude records flagged 'frp_missing'",
+       "records_failing_rule": 0,
+       "removed_in_sequence": 0
+      },
+      {
+       "rule": "flag_frp_negative",
+       "description": "exclude records flagged 'frp_negative'",
+       "records_failing_rule": 0,
+       "removed_in_sequence": 0
+      }
+     ],
+     "by_platform_retained": {
+      "AQUA": 20002,
+      "TERRA": 6910
+     }
+    },
+    "viirs": {
+     "valid_records": 173209,
+     "retained": 151185,
+     "excluded": 22024,
+     "rules": [
+      {
+       "rule": "type_filter",
+       "description": "keep FIRMS type in [0] (where the source has a type column)",
+       "records_failing_rule": 1527,
+       "removed_in_sequence": 1527
+      },
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+       "records_failing_rule": 20529,
+       "removed_in_sequence": 20497
+      },
+      {
+       "rule": "flag_frp_missing",
+       "description": "exclude records flagged 'frp_missing'",
+       "records_failing_rule": 0,
+       "removed_in_sequence": 0
+      },
+      {
+       "rule": "flag_frp_negative",
+       "description": "exclude records flagged 'frp_negative'",
+       "records_failing_rule": 0,
+       "removed_in_sequence": 0
+      }
+     ],
+     "by_platform_retained": {
+      "NOAA20": 43354,
+      "NOAA21": 17539,
+      "SNPP": 90292
+     }
+    }
+   }
+  },
+  "default_no_isolated": {
+   "label": "Default minus isolated (exploratory)",
+   "description": "EXPLORATORY ONLY: also drops detections with no neighbour within the isolation radius and window. Isolated detections can be real small fires; use this only to see how sensitive results are.",
+   "exploratory": true,
+   "active": false,
+   "sensors": {
+    "modis": {
+     "valid_records": 29276,
+     "retained": 19697,
+     "excluded": 9579,
+     "rules": [
+      {
+       "rule": "type_filter",
+       "description": "keep FIRMS type in [0] (where the source has a type column)",
+       "records_failing_rule": 624,
+       "removed_in_sequence": 624
+      },
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+       "records_failing_rule": 1843,
+       "removed_in_sequence": 1740
+      },
+      {
+       "rule": "flag_isolated",
+       "description": "exclude records flagged 'isolated'",
+       "records_failing_rule": 8308,
+       "removed_in_sequence": 7215
+      }
+     ],
+     "by_platform_retained": {
+      "AQUA": 15079,
+      "TERRA": 4618
+     }
+    },
+    "viirs": {
+     "valid_records": 173209,
+     "retained": 125965,
+     "excluded": 47244,
+     "rules": [
+      {
+       "rule": "type_filter",
+       "description": "keep FIRMS type in [0] (where the source has a type column)",
+       "records_failing_rule": 1527,
+       "removed_in_sequence": 1527
+      },
+      {
+       "rule": "confidence_filter",
+       "description": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+       "records_failing_rule": 20529,
+       "removed_in_sequence": 20497
+      },
+      {
+       "rule": "flag_isolated",
+       "description": "exclude records flagged 'isolated'",
+       "records_failing_rule": 28439,
+       "removed_in_sequence": 25220
+      }
+     ],
+     "by_platform_retained": {
+      "NOAA20": 36243,
+      "NOAA21": 15206,
+      "SNPP": 74516
+     }
+    }
+   }
+  }
+ },
+ "frp_thresholds": {
+  "modis/AQUA": 505.21138584469963,
+  "modis/TERRA": 242.40733077132444,
+  "viirs/NOAA20": 93.99718384308761,
+  "viirs/NOAA21": 107.89145217476101,
+  "viirs/SNPP": 101.32051644029383
+ },
+ "data_origin": "NASA_FIRMS",
+ "active_profile": "baseline",
+ "removal_steps": {
+  "modis": [
+   {
+    "step": "duplicate_rows",
+    "rule": "exact duplicate rows within one source (e.g. overlapping download windows)",
+    "removed": 0,
+    "kind": "redundant_record"
+   },
+   {
+    "step": "invalid_coordinate_format",
+    "rule": "latitude/longitude not numeric",
+    "removed": 0,
+    "kind": "invalid_record"
+   },
+   {
+    "step": "coordinates_out_of_range",
+    "rule": "|lat|>90 or |lon|>180",
+    "removed": 0,
+    "kind": "invalid_record"
+   },
+   {
+    "step": "invalid_date",
+    "rule": "acq_date not parseable",
+    "removed": 0,
+    "kind": "invalid_record"
+   },
+   {
+    "step": "study_region_bbox",
+    "rule": "inside processing region (79.5, 5.8, 82.0, 9.9)",
+    "removed": 0,
+    "kind": "scope"
+   },
+   {
+    "step": "before_product_start",
+    "rule": "month >= 2000-12 (configured product start)",
+    "removed": 2,
+    "kind": "scope"
+   },
+   {
+    "step": "type_filter",
+    "rule": "keep FIRMS type in [0] (where the source has a type column)",
+    "removed": 624,
+    "kind": "analytical_filter"
+   },
+   {
+    "step": "confidence_filter",
+    "rule": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+    "removed": 1740,
+    "kind": "analytical_filter"
+   }
+  ],
+  "viirs": [
+   {
+    "step": "duplicate_rows",
+    "rule": "exact duplicate rows within one source (e.g. overlapping download windows)",
+    "removed": 0,
+    "kind": "redundant_record"
+   },
+   {
+    "step": "invalid_coordinate_format",
+    "rule": "latitude/longitude not numeric",
+    "removed": 0,
+    "kind": "invalid_record"
+   },
+   {
+    "step": "coordinates_out_of_range",
+    "rule": "|lat|>90 or |lon|>180",
+    "removed": 0,
+    "kind": "invalid_record"
+   },
+   {
+    "step": "invalid_date",
+    "rule": "acq_date not parseable",
+    "removed": 0,
+    "kind": "invalid_record"
+   },
+   {
+    "step": "study_region_bbox",
+    "rule": "inside processing region (79.5, 5.8, 82.0, 9.9)",
+    "removed": 0,
+    "kind": "scope"
+   },
+   {
+    "step": "before_product_start",
+    "rule": "month >= 2012-02 (configured product start)",
+    "removed": 53,
+    "kind": "scope"
+   },
+   {
+    "step": "type_filter",
+    "rule": "keep FIRMS type in [0] (where the source has a type column)",
+    "removed": 1527,
+    "kind": "analytical_filter"
+   },
+   {
+    "step": "confidence_filter",
+    "rule": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+    "removed": 20497,
+    "kind": "analytical_filter"
+   }
+  ]
+ }
+}

@@ -1,0 +1,176 @@
+{
+ "data_origin": "NASA_FIRMS",
+ "active_profile": "baseline",
+ "sensors": {
+  "modis": {
+   "sensor": "modis",
+   "rows_read": 29278,
+   "steps": [
+    {
+     "step": "duplicate_rows",
+     "rule": "exact duplicate rows within one source (e.g. overlapping download windows)",
+     "removed": 0,
+     "kind": "redundant_record"
+    },
+    {
+     "step": "invalid_coordinate_format",
+     "rule": "latitude/longitude not numeric",
+     "removed": 0,
+     "kind": "invalid_record"
+    },
+    {
+     "step": "coordinates_out_of_range",
+     "rule": "|lat|>90 or |lon|>180",
+     "removed": 0,
+     "kind": "invalid_record"
+    },
+    {
+     "step": "invalid_date",
+     "rule": "acq_date not parseable",
+     "removed": 0,
+     "kind": "invalid_record"
+    },
+    {
+     "step": "study_region_bbox",
+     "rule": "inside processing region (79.5, 5.8, 82.0, 9.9)",
+     "removed": 0,
+     "kind": "scope"
+    },
+    {
+     "step": "before_product_start",
+     "rule": "month >= 2000-12 (configured product start)",
+     "removed": 2,
+     "kind": "scope"
+    },
+    {
+     "step": "type_filter",
+     "rule": "keep FIRMS type in [0] (where the source has a type column)",
+     "removed": 624,
+     "kind": "analytical_filter"
+    },
+    {
+     "step": "confidence_filter",
+     "rule": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+     "removed": 1740,
+     "kind": "analytical_filter"
+    }
+   ],
+   "platform_checks": {
+    "filled_from_source_name": 0,
+    "conflicts_satellite_vs_source": 0
+   },
+   "rows_valid": 29276,
+   "type_breakdown": [
+    {
+     "raw_code": 0,
+     "count": 28652,
+     "kept": true,
+     "documented_meaning": "presumed vegetation fire",
+     "basis": "meanings from copies of the FIRMS attribute table, official page not read (verify)"
+    },
+    {
+     "raw_code": 2,
+     "count": 144,
+     "kept": false,
+     "documented_meaning": "other static land source",
+     "basis": "meanings from copies of the FIRMS attribute table, official page not read (verify)"
+    },
+    {
+     "raw_code": 3,
+     "count": 480,
+     "kept": false,
+     "documented_meaning": "offshore",
+     "basis": "meanings from copies of the FIRMS attribute table, official page not read (verify)"
+    }
+   ],
+   "rows_kept": 26912,
+   "profile": "Project default",
+   "quality_flags_file": "quality/modis_flags.csv.gz"
+  },
+  "viirs": {
+   "sensor": "viirs",
+   "rows_read": 173262,
+   "steps": [
+    {
+     "step": "duplicate_rows",
+     "rule": "exact duplicate rows within one source (e.g. overlapping download windows)",
+     "removed": 0,
+     "kind": "redundant_record"
+    },
+    {
+     "step": "invalid_coordinate_format",
+     "rule": "latitude/longitude not numeric",
+     "removed": 0,
+     "kind": "invalid_record"
+    },
+    {
+     "step": "coordinates_out_of_range",
+     "rule": "|lat|>90 or |lon|>180",
+     "removed": 0,
+     "kind": "invalid_record"
+    },
+    {
+     "step": "invalid_date",
+     "rule": "acq_date not parseable",
+     "removed": 0,
+     "kind": "invalid_record"
+    },
+    {
+     "step": "study_region_bbox",
+     "rule": "inside processing region (79.5, 5.8, 82.0, 9.9)",
+     "removed": 0,
+     "kind": "scope"
+    },
+    {
+     "step": "before_product_start",
+     "rule": "month >= 2012-02 (configured product start)",
+     "removed": 53,
+     "kind": "scope"
+    },
+    {
+     "step": "type_filter",
+     "rule": "keep FIRMS type in [0] (where the source has a type column)",
+     "removed": 1527,
+     "kind": "analytical_filter"
+    },
+    {
+     "step": "confidence_filter",
+     "rule": "MODIS confidence >= 30; VIIRS confidence in ['h', 'high', 'n', 'nominal']",
+     "removed": 20497,
+     "kind": "analytical_filter"
+    }
+   ],
+   "platform_checks": {
+    "filled_from_source_name": 0,
+    "conflicts_satellite_vs_source": 0
+   },
+   "rows_valid": 173209,
+   "type_breakdown": [
+    {
+     "raw_code": 0,
+     "count": 171682,
+     "kept": true,
+     "documented_meaning": "presumed vegetation fire",
+     "basis": "meanings from copies of the FIRMS attribute table, official page not read (verify)"
+    },
+    {
+     "raw_code": 2,
+     "count": 1238,
+     "kept": false,
+     "documented_meaning": "other static land source",
+     "basis": "meanings from copies of the FIRMS attribute table, official page not read (verify)"
+    },
+    {
+     "raw_code": 3,
+     "count": 289,
+     "kept": false,
+     "documented_meaning": "offshore",
+     "basis": "meanings from copies of the FIRMS attribute table, official page not read (verify)"
+    }
+   ],
+   "rows_kept": 151185,
+   "profile": "Project default",
+   "quality_flags_file": "quality/viirs_flags.csv.gz"
+  }
+ }
+}
